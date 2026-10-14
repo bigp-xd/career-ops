@@ -51,8 +51,8 @@ export function decodeEntities(s) {
   });
 }
 
-/** @param {string} s */
-const squash = (s) => s.replace(/[\s ]+/g, ' ').trim();
+/** JS `\s` already covers no-break and other Unicode spaces. @param {string} s */
+const squash = (s) => s.replace(/\s+/g, " ").trim();
 
 /** @param {string} attrs @param {string} name */
 function attr(attrs, name) {

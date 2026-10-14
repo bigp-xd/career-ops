@@ -1,0 +1,79 @@
+// @ts-check
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { decodeLayers, opaqueJobKey } from '../links.mjs';
+import { linkedin } from '../parsers/linkedin.mjs';
+import { indeed } from '../parsers/indeed.mjs';
+import { ziprecruiter } from '../parsers/ziprecruiter.mjs';
+import { parseAlert, cleanField } from '../parse.mjs';
+import { COMMON_NOISE } from '../cards.mjs';
+
+const JK = '0123456789abcdef';
+
+test('decodeLayers unwraps nested URL encoding', () => {
+  assert.deepEqual(decodeLayers('a%253Db'), ['a%253Db', 'a%3Db', 'a=b']);
+});
+
+test('opaqueJobKey keeps titled board links and refuses footer links', () => {
+  const host = /(^|\.)example\.com$/i;
+  assert.deepEqual(opaqueJobKey('https://click.example.com/ekm/ABC123#x', 'Event Coordinator', host, COMMON_NOISE),
+    { key: 'opaque:https://click.example.com/ekm/ABC123', url: 'https://click.example.com/ekm/ABC123', opaque: true });
+  assert.equal(opaqueJobKey('https://other.test/ekm/ABC', 'Designer', host, COMMON_NOISE), null);
+  assert.equal(opaqueJobKey('https://www.example.com/unsubscribe/abc', 'Stop these emails', host, COMMON_NOISE), null);
+  assert.equal(opaqueJobKey('https://www.example.com/ekm/ABC', 'View job', host, COMMON_NOISE), null);
+  assert.equal(opaqueJobKey('https://www.example.com/ekm/ABC', '', host, COMMON_NOISE), null);
+  assert.equal(opaqueJobKey('http://www.example.com/ekm/ABC', 'Designer', host, COMMON_NOISE), null);
+});
+
+test('linkedin.jobKey canonicalises every job-link shape and ignores the rest', () => {
+  const want = { key: 'linkedin:4012345678', url: 'https://www.linkedin.com/jobs/view/4012345678/' };
+  assert.deepEqual(linkedin.jobKey('https://www.linkedin.com/comm/jobs/view/4012345678/?trackingId=abc%3D%3D&refId=x', ''), want);
+  assert.deepEqual(linkedin.jobKey('https://www.linkedin.com/jobs/view/senior-designer-at-acme-4012345678', ''), want);
+  assert.deepEqual(linkedin.jobKey('https://www.linkedin.com/jobs/view/designer-2024-4012345678/', ''), want);
+  assert.deepEqual(linkedin.jobKey('https://www.linkedin.com/comm/jobs/search?currentJobId=4012345678', ''), want);
+  assert.equal(linkedin.jobKey('https://www.linkedin.com/comm/jobs/search?keywords=designer', 'See all jobs'), null);
+  assert.equal(linkedin.jobKey('https://evil.test/jobs/view/4012345678', ''), null);
+});
+
+test('indeed.jobKey finds jk directly, on country hosts, and inside tracking redirects', () => {
+  assert.deepEqual(indeed.jobKey(`https://www.indeed.com/rc/clk/dl?jk=${JK}&from=ja`, ''),
+    { key: `indeed:${JK}`, url: `https://www.indeed.com/viewjob?jk=${JK}` });
+  assert.deepEqual(indeed.jobKey(`https://ca.indeed.com/viewjob?jk=${JK.toUpperCase()}`, ''),
+    { key: `indeed:${JK}`, url: `https://ca.indeed.com/viewjob?jk=${JK}` });
+  const nested = `https://cts.indeed.com/v3/H4s?url=${encodeURIComponent(`https://ca.indeed.com/rc/clk?jk=${JK}&from=ja`)}`;
+  assert.deepEqual(indeed.jobKey(nested, ''), { key: `indeed:${JK}`, url: `https://ca.indeed.com/viewjob?jk=${JK}` });
+});
+
+test('indeed.jobKey falls back to the link for titled id-less links only', () => {
+  assert.deepEqual(indeed.jobKey('https://engage.indeed.com/f/a/XYZ123', 'Graphic Designer'),
+    { key: 'opaque:https://engage.indeed.com/f/a/XYZ123', url: 'https://engage.indeed.com/f/a/XYZ123', opaque: true });
+  assert.equal(indeed.jobKey('https://www.indeed.com/account/unsubscribe?x=1', 'Unsubscribe'), null);
+  assert.equal(indeed.jobKey('https://www.indeed.com/f/a/XYZ', 'Full-time'), null);
+});
+
+test('ziprecruiter.jobKey keeps only jid on posting URLs, direct or wrapped', () => {
+  const posting = 'https://www.ziprecruiter.com/c/Acme/Job/Graphic-Designer/-in-Toronto,ON?jid=a1b2c3d4e5&utm_source=alert';
+  const want = { key: 'ziprecruiter:a1b2c3d4e5', url: 'https://www.ziprecruiter.com/c/Acme/Job/Graphic-Designer/-in-Toronto,ON?jid=a1b2c3d4e5' };
+  assert.deepEqual(ziprecruiter.jobKey(posting, ''), want);
+  assert.deepEqual(ziprecruiter.jobKey(`https://click.ziprecruiter.com/redirect?u=${encodeURIComponent(posting)}`, ''), want);
+  assert.deepEqual(ziprecruiter.jobKey('https://click.ziprecruiter.com/ekm/AbCdEf123456', 'Event Coordinator'),
+    { key: 'opaque:https://click.ziprecruiter.com/ekm/AbCdEf123456', url: 'https://click.ziprecruiter.com/ekm/AbCdEf123456', opaque: true });
+  assert.equal(ziprecruiter.jobKey('https://www.ziprecruiter.com/alerts/manage', 'Manage alerts'), null);
+});
+
+test('cleanField strips control and bidi characters, collapses space, caps length', () => {
+  assert.equal(cleanField(`  Graphic${String.fromCharCode(0x202e)}  Designer${String.fromCharCode(0x07)} `), 'Graphic Designer');
+  assert.equal(cleanField('x'.repeat(300)).length, 200);
+  assert.equal(cleanField(undefined), '');
+});
+
+test('parseAlert returns clean jobs and counts id-less links', () => {
+  const html = `<a href="https://www.linkedin.com/comm/jobs/view/4012345678/?trackingId=a">Graphic&nbsp;Designer</a><p>Acme · Toronto, ON</p>`;
+  assert.deepEqual(parseAlert(linkedin, html), {
+    jobs: [{ title: 'Graphic Designer', company: 'Acme', location: 'Toronto, ON', url: 'https://www.linkedin.com/jobs/view/4012345678/' }],
+    warnings: [],
+  });
+  const opaque = parseAlert(indeed, '<a href="https://engage.indeed.com/f/a/XYZ123">Event Coordinator</a><div>Beta</div><div>Remote</div>');
+  assert.equal(opaque.jobs.length, 1);
+  assert.deepEqual(opaque.warnings, ['Indeed: some job links had no job id, so the original links were kept']);
+});
