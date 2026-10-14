@@ -1,0 +1,19 @@
+Authentication-Results: mx.google.com; dkim=pass header.i=@linkedin.com; spf=pass smtp.mailfrom=jobalerts-noreply@linkedin.com; dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=linkedin.com
+From: LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>
+Subject: =?UTF-8?Q?=E2=80=9Cgraphic_designer=E2=80=9D:_Acme_Studio_and_more?=
+Date: Tue, 13 Oct 2026 09:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+<html><head><style>.x{color:red}</style></head><body>
+<h1>Your job alert for graphic designer</h1>
+<table><tr><td><a href="https://www.linkedin.com/comm/jobs/view/4012345678/?trackingId=REDACTED1&amp;refId=REDACTED2"><img src="https://media.licdn.com/dms/image/REDACTED3" alt="Acme Studio"></a></td>
+<td><a href="https://www.linkedin.com/comm/jobs/view/4012345678/?trackingId=REDACTED1&amp;refId=REDACTED2">Graphic Designer</a>
+<p>Acme Studio · Toronto, ON (Hybrid)</p><p>Actively recruiting</p></td></tr></table>
+<table><tr><td><a href="https://www.linkedin.com/comm/jobs/view/4098765432/?trackingId=REDACTED4&amp;refId=REDACTED2">Event &amp; Brand Coordinator</a>
+<p>Café Collective · Remote</p><p>3 days ago</p></td></tr></table>
+<p><a href="https://www.linkedin.com/comm/jobs/search?keywords=graphic%20designer">See all jobs</a></p>
+<p><a href="https://www.linkedin.com/comm/psettings/email-unsubscribe?lipi=REDACTED5">Unsubscribe</a></p>
+<p>This email was intended for Test Candidate.</p>
+</body></html>
