@@ -2,8 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { createSanitizer, buildFixture } from '../tools/sanitize-eml.mjs';
+import { createSanitizer, buildFixture, fixtureFields } from '../tools/sanitize-eml.mjs';
 import { parseMessage } from '../mime.mjs';
+import { buildEml } from './helpers.mjs';
 
 const JK = '0123456789abcdef';
 
@@ -49,4 +50,22 @@ test('buildFixture output parses back to the same HTML and headers', () => {
   assert.equal(msg.html, '<p>Café</p>\r\n');
   assert.equal(msg.get('subject'), 'Café jobs');
   assert.equal(msg.get('authentication-results'), 'mx.google.com; dmarc=pass');
+});
+
+test('fixtureFields restores the original sender of a forwarded alert and labels the synthetic DMARC result', () => {
+  const msg = parseMessage(buildEml({
+    from: 'Jane Doe <jane.doe@gmail.com>',
+    subject: 'Fwd: Designer at Acme',
+    auth: ['mx.google.com; dkim=pass; dmarc=pass (p=NONE) header.from=gmail.com'],
+    html: '<p>Hi Jane Doe</p>',
+  }));
+  const s = createSanitizer([['Jane Doe', 'Test Candidate']]);
+  const fwd = fixtureFields(msg, s, { from: 'LinkedIn <jobs-noreply@linkedin.com>', forwarded: true });
+  assert.equal(fwd.from, 'LinkedIn <jobs-noreply@linkedin.com>');
+  assert.equal(fwd.subject, 'Designer at Acme');
+  assert.equal(fwd.auth, 'mx.google.com; dmarc=pass (synthetic: fixture built from a forwarded copy) header.from=linkedin.com');
+  assert.equal(fwd.html, '<p>Hi Test Candidate</p>');
+  const plain = fixtureFields(msg, s);
+  assert.equal(plain.from, 'Test Candidate <candidate@example.com>');
+  assert.equal(plain.auth, 'mx.google.com; dkim=pass; dmarc=pass (p=NONE) header.from=gmail.com');
 });

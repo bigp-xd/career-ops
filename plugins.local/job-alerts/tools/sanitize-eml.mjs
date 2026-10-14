@@ -3,6 +3,7 @@
 // Turn a job-alert email downloaded from Gmail into a fixture safe to commit.
 //
 //   node plugins.local/job-alerts/tools/sanitize-eml.mjs <in.eml> <out.eml> [--replace "Jane Doe=Test Candidate"]...
+//       [--forwarded --from "LinkedIn <jobs-noreply@linkedin.com>"]   # for an alert someone forwarded
 //
 // Keeps only From, Subject, Date, Gmail's own (topmost) Authentication-Results
 // header, and the decoded HTML part. Replaces the recipient's addresses, every
@@ -12,6 +13,7 @@
 // identifiers (jk, vjk, jid, currentJobId, numeric LinkedIn ids) are kept.
 // Always read the output before committing it.
 import { readFileSync, writeFileSync } from 'node:fs';
+import { domainOf, senderAddress } from '../auth.mjs';
 import { parseMessage } from '../mime.mjs';
 import { isMainModule } from '../../../lib/is-main-module.mjs';
 
@@ -84,6 +86,29 @@ export function createSanitizer(replacements = []) {
   return { scrubUrl, scrubText, scrubHtml };
 }
 
+/**
+ * The fixture's headers and scrubbed HTML. A Gmail forward's own From and
+ * Authentication-Results describe the forwarder, not the board, so for a
+ * forwarded copy pass the original sender as `from` with `forwarded: true`:
+ * the sender is restored and a clearly labelled synthetic Gmail DMARC result
+ * for that sender's domain stands in for the one the forward lost.
+ * @param {import('../mime.mjs').ParsedMessage} msg
+ * @param {ReturnType<typeof createSanitizer>} s
+ * @param {{ from?: string, forwarded?: boolean }} [o]
+ */
+export function fixtureFields(msg, s, { from = '', forwarded = false } = {}) {
+  const sender = from || s.scrubText(msg.get('from'));
+  return {
+    from: sender,
+    subject: s.scrubText(msg.get('subject').replace(/^\s*(fwd?|fw):\s*/i, '')),
+    date: msg.get('date'),
+    auth: forwarded
+      ? `mx.google.com; dmarc=pass (synthetic: fixture built from a forwarded copy) header.from=${domainOf(senderAddress(sender))}`
+      : s.scrubText(msg.getAll('authentication-results')[0] ?? ''),
+    html: s.scrubHtml(msg.html),
+  };
+}
+
 /** @param {{ from: string, subject: string, date: string, auth: string, html: string }} f */
 export function buildFixture({ from, subject, date, auth, html }) {
   return [
@@ -109,24 +134,27 @@ function main(argv) {
   }
   /** @type {Array<[string, string]>} */
   const replacements = [];
+  let from = '';
+  let forwarded = false;
   for (let i = 0; i < rest.length; i++) {
     if (rest[i] === '--replace' && rest[i + 1]) {
-      const [from, ...to] = rest[++i].split('=');
-      replacements.push([from, to.join('=')]);
+      const [find, ...to] = rest[++i].split('=');
+      replacements.push([find, to.join('=')]);
+    } else if (rest[i] === '--from' && rest[i + 1]) {
+      from = rest[++i];
+    } else if (rest[i] === '--forwarded') {
+      forwarded = true;
     }
   }
-  const msg = parseMessage(readFileSync(input));
-  for (const header of [...msg.getAll('to'), ...msg.getAll('delivered-to'), ...msg.getAll('x-original-to')]) {
-    for (const addr of header.match(EMAIL) ?? []) replacements.push([addr, 'candidate@example.com']);
+  if (forwarded && !from) {
+    console.error('--forwarded needs --from "<the original sender, e.g. LinkedIn <jobs-noreply@linkedin.com>>"');
+    process.exit(1);
   }
-  const s = createSanitizer(replacements);
-  writeFileSync(output, buildFixture({
-    from: msg.get('from'),
-    subject: s.scrubText(msg.get('subject')),
-    date: msg.get('date'),
-    auth: s.scrubText(msg.getAll('authentication-results')[0] ?? ''),
-    html: s.scrubHtml(msg.html),
-  }), 'utf8');
+  const msg = parseMessage(readFileSync(input));
+  for (const header of [...msg.getAll('from'), ...msg.getAll('to'), ...msg.getAll('delivered-to'), ...msg.getAll('x-original-to')]) {
+    for (const addr of header.match(EMAIL) ?? []) if (!BOARD_ADDRESS.test(addr)) replacements.push([addr, 'candidate@example.com']);
+  }
+  writeFileSync(output, buildFixture(fixtureFields(msg, createSanitizer(replacements), { from, forwarded })), 'utf8');
   console.log(`✓ wrote ${output}. Search it for the candidate's name, email, phone and city before committing.`);
 }
 

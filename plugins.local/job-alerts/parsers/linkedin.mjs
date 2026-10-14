@@ -10,7 +10,7 @@ export const linkedin = {
   id: 'linkedin',
   label: 'LinkedIn',
   domain: 'linkedin.com',
-  /** Alert senders. LinkedIn's messages and invitations use other addresses. Confirmed in PLAN Task 10. */
+  /** Alert senders (jobs-noreply@ seen on a real "Jobs that match your profile" email). LinkedIn's messages and invitations use other addresses. */
   senders: /^(jobalerts-noreply|jobs-listings|jobs-noreply)@linkedin\.com$/i,
   noise: [/\bconnections? work here$/i, /\balumni work here$/i],
   /** @type {import('../cards.mjs').JobKeyFn} */
