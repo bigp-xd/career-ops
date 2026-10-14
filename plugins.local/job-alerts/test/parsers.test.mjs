@@ -112,3 +112,9 @@ test('parseAlert with allowOpaque: false keeps id-bearing job links only', () =>
     warnings: [],
   });
 });
+
+test('opaque links drop login-like query parameters', () => {
+  const host = /(^|\.)ziprecruiter\.com$/i;
+  const k = opaqueJobKey('https://www.ziprecruiter.com/km/AbC123?tsid=777&auth_token=SECRET&contact_id=42&expires=99&email=a%40b.c&Token=x', 'Event Coordinator', host, COMMON_NOISE);
+  assert.deepEqual(k, { key: 'opaque:https://www.ziprecruiter.com/km/AbC123?tsid=777', url: 'https://www.ziprecruiter.com/km/AbC123?tsid=777', opaque: true });
+});

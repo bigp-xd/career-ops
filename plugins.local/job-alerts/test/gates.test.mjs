@@ -47,7 +47,8 @@ test('boardForSender matches alert senders only', () => {
   assert.equal(boardForSender('messages-noreply@linkedin.com'), null);
   assert.equal(boardForSender('donotreply@match.indeed.com')?.id, 'indeed');
   assert.equal(boardForSender('alert@indeed.com'), null);
-  assert.equal(boardForSender('alerts@ziprecruiter.com')?.id, 'ziprecruiter');
+  assert.equal(boardForSender('phil@ziprecruiter.com')?.id, 'ziprecruiter');
+  assert.equal(boardForSender('alerts@ziprecruiter.com'), null);
   assert.equal(boardForSender('jobalerts-noreply@notlinkedin.com'), null);
   assert.equal(boardForSender('jobalerts-noreply@linkedin.com.evil.test'), null);
   assert.equal(boardForSender(''), null);

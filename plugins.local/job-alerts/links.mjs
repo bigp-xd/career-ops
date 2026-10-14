@@ -20,6 +20,7 @@ export function decodeLayers(href, max = 3) {
   return layers;
 }
 
+const LOGIN_PARAM = /^(auth_?token|access_?token|token|session|sid|contact_?id|user_?id|uid|email|e|expires|sig|signature)$/i;
 const FOOTER_PATH = /\/(unsubscribe|optout|opt-out|settings|psettings|preferences|privacy|terms|help|support|account|profile|login|signin|download|feedback|jobs-search|search|saved-jobs|alerts?)(\/|$)/i;
 
 /**
@@ -34,5 +35,8 @@ export function opaqueJobKey(href, text, hostRe, noise) {
   if (!u || u.protocol !== 'https:' || !hostRe.test(u.hostname)) return null;
   if (!text || noise.some(re => re.test(text)) || FOOTER_PATH.test(u.pathname)) return null;
   u.hash = '';
+  // Tracking links can carry a login for the recipient's account (ZipRecruiter
+  // puts auth_token and contact_id on every job link). A lead must not.
+  for (const name of [...u.searchParams.keys()]) if (LOGIN_PARAM.test(name)) u.searchParams.delete(name);
   return { key: `opaque:${u.href}`, url: u.href, opaque: true };
 }

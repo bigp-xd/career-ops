@@ -16,7 +16,7 @@
 
 /** Text that is never a title, company or location, on any board. */
 export const COMMON_NOISE = [
-  /^(view|see|apply|save|share|show|learn)( (job|jobs|now|details|more|all|all jobs|this job|similar jobs))?$/i,
+  /^(view|see|apply|save|share|show|learn)( (job|jobs|now|details|more|more jobs|all|all jobs|this job|similar jobs))?$/i,
   /^(easy apply|quick apply|1-click apply|apply easily)$/i,
   /^(new|promoted|featured|sponsored|reposted|urgently hiring|actively recruiting|be an early applicant|hiring multiple candidates|responsive employer)$/i,
   /\b\d+\+?\s*(minutes?|hours?|days?|weeks?|months?|[mhdw])\s+ago$/i,

@@ -13,8 +13,8 @@ export const ziprecruiter = {
   id: 'ziprecruiter',
   label: 'ZipRecruiter',
   domain: 'ziprecruiter.com',
-  /** Any ziprecruiter.com address until the sample email shows the alert sender (PLAN Task 12). */
-  senders: /@([a-z0-9-]+\.)*ziprecruiter\.com$/i,
+  /** Confirmed alert sender (seen on a real job-recommendation email). Other ziprecruiter.com mail is read for id-bearing links only. */
+  senders: /^phil@ziprecruiter\.com$/i,
   noise: NOISE,
   /** @type {import('../cards.mjs').JobKeyFn} */
   jobKey(href, text) {

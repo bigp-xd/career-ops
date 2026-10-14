@@ -85,3 +85,9 @@ test('a card with no usable title is dropped', () => {
   const html = '<a href="https://jobs.test/view/5"><img src="https://img.test/x.png"></a><a href="https://jobs.test/view/5">View job</a>';
   assert.deepEqual(cardsOf(html), []);
 });
+
+test('button and footer phrases are noise, real locations are not', () => {
+  const noisy = (t) => COMMON_NOISE.some(re => re.test(t));
+  for (const t of ['View More Jobs', 'View Details', 'See all jobs', '1-Click Apply', 'Easy Apply', '3 days ago', '$48K - $65K / yr']) assert.ok(noisy(t), t);
+  for (const t of ['New York, NY', 'Save the Children', 'San Jose, CA • In-person', 'Applied Materials']) assert.ok(!noisy(t), t);
+});

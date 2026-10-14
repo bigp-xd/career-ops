@@ -122,9 +122,15 @@ Each parser:
     footer links) is never a job; only non-cts Indeed links fall back to the
     opaque link. Older formats with `jk` directly in the URL or in an encoded
     redirect are still read.
-  - ZipRecruiter: canonical form decided from the sample emails.
+  - ZipRecruiter: real alert links are opaque `www.ziprecruiter.com/km/<token>`
+    tracking links with no job id, so they are kept as links (and warned
+    about). A posting URL with `jid=` (direct or inside a redirect) is
+    canonicalised to `https://www.ziprecruiter.com{path}?jid={jid}`.
   - When a link carries no extractable id, keep the original link (it still
     opens the posting in a browser) and add a warning. Never follow the redirect.
+    Login-like query parameters (`auth_token`, `contact_id`, `expires`,
+    `email`, …) are removed first: ZipRecruiter puts a login for the
+    recipient's account on every job link, and a lead must not carry it.
 - Ignores everything that is not a job card: logos, footer, "see all jobs",
   settings, unsubscribe, app-store badges.
 - Returns `jobs: []` plus a warning when it recognizes the sender but finds no
@@ -234,8 +240,3 @@ registry, this helper has to move out of the plugin folder.
 - Looking up the employer's own posting automatically (pipeline mode already
   does this).
 - Publishing to the plugin registry.
-
-## Open items
-
-- Exact link format for ZipRecruiter alerts: settled once the sample email
-  is in.
