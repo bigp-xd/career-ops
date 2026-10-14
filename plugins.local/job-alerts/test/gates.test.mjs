@@ -15,6 +15,24 @@ test('senderAddress reads the address inside angle brackets, lower-cased', () =>
   assert.equal(domainOf('a@jobalert.indeed.com'), 'jobalert.indeed.com');
 });
 
+test('senderAddress ignores addresses hidden in a quoted display name and refuses address lists', () => {
+  assert.equal(senderAddress('"<jobalerts-noreply@linkedin.com>" <me@attacker.test>'), 'me@attacker.test');
+  assert.equal(senderAddress('"LinkedIn <jobalerts-noreply@linkedin.com>" me@attacker.test'), '');
+  assert.equal(senderAddress('Name <a@x.test>, <jobalerts-noreply@linkedin.com>'), '');
+  assert.equal(senderAddress('<jobalerts-noreply@linkedin.com> <me@attacker.test>'), '');
+});
+
+test("a DMARC pass only counts for the sender's own domain", () => {
+  const msg = (from, auth) => parseMessage(buildEml({ from, auth: [auth] }));
+  const linkedinFrom = 'LinkedIn <jobalerts-noreply@linkedin.com>';
+  assert.equal(isGoogleDmarcPass(msg(linkedinFrom, 'mx.google.com; dmarc=pass (p=NONE) header.from=attacker.test')), false);
+  assert.equal(isGoogleDmarcPass(msg(linkedinFrom, 'mx.google.com; dmarc=pass (p=REJECT)')), false);
+  assert.equal(isGoogleDmarcPass(msg(linkedinFrom, 'mx.google.com; dmarc=pass (p=REJECT) header.from=LinkedIn.com')), true);
+  const spoof = msg('"<jobalerts-noreply@linkedin.com>" <me@attacker.test>', 'mx.google.com; dmarc=pass (p=NONE) header.from=attacker.test');
+  assert.equal(boardForSender(senderAddress(spoof.get('from'))), null);
+  assert.equal(isGoogleDmarcPass(msg('Indeed <donotreply@match.indeed.com>', 'mx.google.com; dkim=pass; dmarc=pass (p=REJECT) header.from=match.indeed.com')), true);
+});
+
 test('isGoogleDmarcPass trusts only the topmost, Gmail-written header', () => {
   const msg = (auth) => parseMessage(buildEml({ auth }));
   assert.equal(isGoogleDmarcPass(msg(['mx.google.com; dkim=pass; dmarc=pass (p=REJECT) header.from=linkedin.com'])), true);

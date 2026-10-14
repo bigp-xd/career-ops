@@ -84,8 +84,12 @@ same code path in tests as live mail does in production.
      matched board picks the parser. Checked first so unrelated mail in the
      label is ignored without warnings. Each board's pattern is confirmed
      from the sample emails.
-   - **Authenticity gate:** an `Authentication-Results` header whose
-     authserv-id is `mx.google.com` must report `dmarc=pass`.
+   - **Authenticity gate:** the topmost `Authentication-Results` header
+     (Gmail's own) must have authserv-id `mx.google.com` and report
+     `dmarc=pass` with `header.from` equal to the From address's domain.
+     The From address is read with quoted display names removed, and a
+     header with more than one address is refused, so an address hidden in
+     a display name cannot pose as the sender.
    - The parser receives the decoded HTML part and returns jobs. All three
      boards send HTML alerts, so there is no plain-text fallback.
 5. Every job is cleaned in `parse.mjs` and returned as
