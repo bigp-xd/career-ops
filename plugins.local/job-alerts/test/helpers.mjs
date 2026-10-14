@@ -1,6 +1,7 @@
 // @ts-check
 // Shared test helpers. Later tasks append to this file.
 import { Buffer } from 'node:buffer';
+import { TOKEN_URL, GMAIL_API } from '../gmail.mjs';
 
 /**
  * Build a raw RFC 822 message (multipart/alternative: text + HTML).
@@ -61,4 +62,57 @@ export function toQuotedPrintable(s) {
     lineLength += chunk.length;
   }
   return out;
+}
+
+export const FULL_ENV = Object.freeze({ GMAIL_CLIENT_ID: 'id', GMAIL_CLIENT_SECRET: 'secret', GMAIL_REFRESH_TOKEN: 'refresh' });
+
+/**
+ * Stand-in for ctx.fetch serving the three Gmail endpoints the plugin uses.
+ * List order follows the insertion order of `messages`.
+ * @param {{ messages?: Record<string, Buffer | Error>, tokenError?: string, onRaw?: (id: string) => void }} [o]
+ */
+export function fakeGmail({ messages = {}, tokenError, onRaw } = {}) {
+  /** @type {{ url: string, opts: any }[]} */
+  const calls = [];
+  const json = (data) => ({ ok: true, status: 200, json: async () => data });
+  /** @param {string} url @param {any} [opts] */
+  async function fetch(url, opts = {}) {
+    calls.push({ url, opts });
+    if (url === TOKEN_URL) {
+      if (tokenError) throw new Error(tokenError);
+      return json({ access_token: 'test-access-token' });
+    }
+    if (url.startsWith(`${GMAIL_API}/messages?`)) return json({ messages: Object.keys(messages).map(id => ({ id })) });
+    const raw = /\/messages\/([^/?]+)\?format=raw$/.exec(url);
+    if (raw) {
+      const id = decodeURIComponent(raw[1]);
+      onRaw?.(id);
+      const m = messages[id];
+      if (m instanceof Error) throw m;
+      return json({ raw: m.toString('base64url') });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  }
+  return { fetch, calls };
+}
+
+/** @param {{ fetch: any, settings?: object, env?: object, dryRun?: boolean }} o */
+export function fakeCtx({ fetch, settings = {}, env = FULL_ENV, dryRun = false }) {
+  /** @type {string[]} */
+  const logs = [];
+  const ctx = { fetch, env, settings, dryRun, log: (...a) => logs.push(a.join(' ')), normalizePostingUrl: (u) => u };
+  return { ctx, logs };
+}
+
+/** One LinkedIn-style alert card. @param {{ n: number, id: string, title: string, company: string, location: string }} c */
+export function linkedinCard({ n, id, title, company, location }) {
+  const href = `https://www.linkedin.com/comm/jobs/view/${id}/?trackingId=t${n}&amp;refId=r${n}`;
+  return `<table><tr><td><a href="${href}"><img src="https://media.licdn.com/logo${n}.png" alt=""></a></td>` +
+    `<td><a href="${href}">${title}</a><p>${company} · ${location}</p><p>Actively recruiting</p></td></tr></table>`;
+}
+
+/** @param {string[]} cards */
+export function alertHtml(cards) {
+  return `<html><head><style>p{margin:0}</style></head><body><h1>Your job alert</h1>${cards.join('')}` +
+    '<p><a href="https://www.linkedin.com/comm/psettings/email-unsubscribe?x=1">Unsubscribe</a></p></body></html>';
 }
