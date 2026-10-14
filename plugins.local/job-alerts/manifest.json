@@ -1,0 +1,12 @@
+{
+  "id": "job-alerts",
+  "name": "Job alerts (Indeed, LinkedIn, ZipRecruiter)",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "description": "Read Indeed, LinkedIn and ZipRecruiter job-alert emails from a Gmail label and add each job to your pipeline (read-only, your own Google login).",
+  "hooks": ["ingest"],
+  "requiredEnv": ["GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET", "GMAIL_REFRESH_TOKEN"],
+  "allowedHosts": ["oauth2.googleapis.com", "gmail.googleapis.com"],
+  "humanInTheLoop": true,
+  "homepage": "https://github.com/bigp-xd/career-ops/tree/main/plugins.local/job-alerts"
+}
