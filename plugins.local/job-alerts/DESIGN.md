@@ -41,20 +41,31 @@ plugins.local/job-alerts/
   manifest.json        id job-alerts, hooks [ingest], requiredEnv GMAIL_CLIENT_ID /
                        GMAIL_CLIENT_SECRET / GMAIL_REFRESH_TOKEN, allowedHosts the two
                        Google hosts, humanInTheLoop true
-  index.mjs            ingest hook: list label → fetch messages → gate → parse → Job[]
-  gmail.mjs            token refresh, message list (paginated), message fetch, body decode
-  parse.mjs            sender → parser dispatch, shared clean-up (whitespace, control
-                       characters, length caps), dedup within one run
-  parsers/indeed.mjs
+  index.mjs            ingest hook: list label → fetch raw messages → gate → parse → Job[]
+  gmail.mjs            token refresh, message list (paginated), raw message fetch
+  mime.mjs             RFC 822 / MIME parsing of the raw message (headers, HTML part)
+  auth.mjs             sender-domain and Gmail DMARC gates
+  boards.mjs           the three board descriptors + sender → board lookup
+  cards.mjs            board-agnostic HTML → job-card extraction
+  links.mjs            URL helpers: layered decoding, id-less ("opaque") link fallback
+  parse.mjs            parseAlert(board, html) + shared clean-up (whitespace, control
+                       characters, length caps)
+  parsers/indeed.mjs   per-board link → job-id rules and noise phrases
   parsers/linkedin.mjs
   parsers/ziprecruiter.mjs
   state.mjs            processed-message record
-  connect-gmail.mjs    one-time helper that prints a refresh token
+  connect-gmail.mjs    one-time helper that prints (or, with --write, saves) a refresh token
+  tools/sanitize-eml.mjs  strips personal data from a downloaded alert before it becomes a fixture
   skill.md             how Codex / Claude drives it (loaded via `node plugins.mjs skill job-alerts`)
   README.md            step-by-step human setup
   DESIGN.md            this file
+  PLAN.md              implementation plan
   test/                node:test suites + fixtures/ (sanitized .eml, one or more per board)
 ```
+
+Messages are fetched with Gmail's `format=raw` and parsed locally by
+`mime.mjs`, so the `.eml` files downloaded from Gmail run through exactly the
+same code path in tests as live mail does in production.
 
 ## Data flow
 
@@ -64,13 +75,19 @@ plugins.local/job-alerts/
    `days_back`, default `7`).
 3. `gmail.mjs` exchanges the refresh token for an access token and lists messages
    matching `label:"<label>" newer_than:<days_back>d`, all through `ctx.fetch`.
-4. For each message not already in the processed record:
-   - **Authenticity gate:** `Authentication-Results` must report `dmarc=pass`.
+4. For each message not already in the processed record (newest first, four
+   at a time, within a 12-second budget):
    - **Sender gate:** the `From` address domain must be `indeed.com`,
-     `linkedin.com` or `ziprecruiter.com`, or a subdomain of one of them. The
-     matched domain picks the parser.
-   - The parser receives the decoded HTML part (and the text part as a fallback)
-     and returns jobs.
+     `linkedin.com` or `ziprecruiter.com` (or a subdomain), **and** the address
+     must match that board's alert-sender pattern (LinkedIn also sends
+     messages and invitations from `linkedin.com`; those are not alerts). The
+     matched board picks the parser. Checked first so unrelated mail in the
+     label is ignored without warnings. Each board's pattern is confirmed
+     from the sample emails.
+   - **Authenticity gate:** an `Authentication-Results` header whose
+     authserv-id is `mx.google.com` must report `dmarc=pass`.
+   - The parser receives the decoded HTML part and returns jobs. All three
+     boards send HTML alerts, so there is no plain-text fallback.
 5. Every job is cleaned in `parse.mjs` and returned as
    `{ title, company, location, url }`. The engine dedups against
    `data/pipeline.md` and appends new leads.
@@ -80,7 +97,7 @@ plugins.local/job-alerts/
 
 ## Parser contract
 
-`parse({ html, text, subject, receivedAt }) → { jobs: Job[], warnings: string[] }`
+`parseAlert(board, html) → { jobs: Job[], warnings: string[] }`
 
 Each parser:
 
@@ -101,7 +118,8 @@ Each parser:
 
 Shared clean-up in `parse.mjs`: collapse whitespace, strip control characters,
 cap title/company/location at 200 characters, drop a job missing a title or a
-URL, dedup on `ctx.normalizePostingUrl(url)` within the run.
+URL. `index.mjs` then dedups on `ctx.normalizePostingUrl(url)` across all
+emails in the run.
 
 Email content is untrusted external content (AGENTS.md): parsers only extract
 these four fields; nothing in an email is treated as an instruction.
@@ -115,9 +133,12 @@ these four fields; nothing in an email is treated as an instruction.
 | Label has no messages | Return `[]`, log the query |
 | One message fails to fetch | Warn, skip, do not mark processed |
 | DMARC fails | Warn with the subject, mark processed |
-| Sender not one of the three | Ignore silently, mark processed |
+| Sender is not a known alert sender (other mail, LinkedIn messages, the candidate forwarding an alert) | Ignore silently, mark processed |
 | Known sender, zero cards found | Warn with subject + date, **do not** mark processed, so a parser fix picks it up on the next run |
 | Link without an id | Keep the original link, warn once per board per run |
+| Known sender, no HTML part | Warn, **do not** mark processed |
+| Many unread alerts (the engine kills an ingest hook after 15 s) | Stop starting new emails after 12 s, return the jobs found so far, save progress, log how many emails remain and to run again |
+| Label name contains `"` | Throw: it would break the Gmail search |
 | `--dry-run` | Parse and return as normal; do not write the processed record |
 
 ## State
@@ -139,8 +160,10 @@ Standalone CLI, not part of the ingest hook.
    `prompt=consent`, PKCE (S256), random `state`.
 4. On the redirect, checks `state`, exchanges the code (with the PKCE verifier)
    at the token endpoint and prints the refresh token in a single clearly
-   marked block. It never writes `.env` (same rule as
-   `plugins/h1b-sponsor/token.mjs`); the user or their agent pastes it.
+   marked block (same default as `plugins/h1b-sponsor/token.mjs`).
+   With `--write` it instead sets `GMAIL_REFRESH_TOKEN` in the data root's
+   `.env` (file mode 600) and prints only a confirmation, so the token never
+   has to pass through a chat with an AI agent.
 5. Times out after 5 minutes and closes the listener.
 
 Known limitation: `node:http` and global `fetch` would fail `plugin-audit.mjs`,
@@ -155,8 +178,8 @@ registry, this helper has to move out of the plugin folder.
    does not expire after 7 days. Accept the "Google hasn't verified this app"
    screen during sign-in (expected for a personal app).
 2. Put the client id and secret in `.env`; run
-   `node plugins.local/job-alerts/connect-gmail.mjs`; paste the refresh token
-   into `.env`.
+   `node plugins.local/job-alerts/connect-gmail.mjs --write`, which signs in
+   and saves the refresh token into `.env`.
 3. Create job alerts on Indeed, LinkedIn and ZipRecruiter (example searches for
    design, UX, events and coordinator roles).
 4. Gmail filter: `from:(indeed.com OR linkedin.com OR ziprecruiter.com)` → apply
@@ -164,8 +187,10 @@ registry, this helper has to move out of the plugin folder.
 5. Enable: add the `job-alerts` block to `config/plugins.yml`, run
    `node plugins.mjs enable job-alerts`. Keep the bundled `gmail` plugin
    disabled, or point it at a different label, to avoid duplicate leads.
-6. After every `git pull` that changes the plugin: `node plugins.mjs trust job-alerts`
-   (the lock pins a hash of the plugin's files).
+6. Updates: every change to the plugin bumps `manifest.json` `version`, which
+   the engine treats as an honest update and re-pins silently after
+   `git pull`. If it ever reports "files changed … without a version bump",
+   run `node plugins.mjs trust job-alerts`.
 7. Daily use: "check my job alerts" in Codex, then "process the pipeline".
 
 ## Testing
@@ -181,7 +206,7 @@ registry, this helper has to move out of the plugin folder.
   respected, `dryRun` writes no state, missing env produces the named error.
 - `connect-gmail.mjs`: unit-test URL construction, PKCE, and state checking;
   the live sign-in is verified by hand.
-- Run with `node --test plugins.local/job-alerts/test/`. The repo's
+- Run with `node --test 'plugins.local/job-alerts/test/*.test.mjs'`. The repo's
   `test-all.mjs` must still pass (the plugin changes no system file).
 - Before handover: a dry run against a real Gmail label, then the README
   followed from scratch on a fresh clone of the fork.
