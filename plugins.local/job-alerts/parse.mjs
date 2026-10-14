@@ -19,10 +19,16 @@ export function cleanField(s) {
 /**
  * @param {{ label: string, noise: RegExp[], jobKey: import('./cards.mjs').JobKeyFn }} board
  * @param {string} html
+ * @param {{ allowOpaque?: boolean }} [opts] false = id-bearing job links only (mail from senders not confirmed as alerts)
  * @returns {{ jobs: Job[], warnings: string[] }}
  */
-export function parseAlert(board, html) {
-  const cards = extractCards(htmlToLines(html), { jobKey: board.jobKey, noise: [...COMMON_NOISE, ...board.noise] });
+export function parseAlert(board, html, { allowOpaque = true } = {}) {
+  /** @type {import('./cards.mjs').JobKeyFn} */
+  const jobKey = allowOpaque ? board.jobKey : (href, text) => {
+    const key = board.jobKey(href, text);
+    return key && !key.opaque ? key : null;
+  };
+  const cards = extractCards(htmlToLines(html), { jobKey, noise: [...COMMON_NOISE, ...board.noise] });
   /** @type {Job[]} */
   const jobs = [];
   let opaque = 0;

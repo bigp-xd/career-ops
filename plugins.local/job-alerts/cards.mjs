@@ -7,7 +7,7 @@
 // the href of the link it sat in, if any. extractCards() walks the lines and
 // opens a new card whenever a link resolves, through the board's jobKey(), to
 // a job it has not seen yet. The first non-noise link text becomes the title;
-// the next non-noise texts become company and location.
+// the next non-noise texts after it become company and location.
 
 /** @typedef {{ text: string, href?: string }} Line */
 /** @typedef {{ key: string, url: string, opaque?: boolean }} JobKey */
@@ -116,7 +116,9 @@ export function extractCards(lines, { jobKey, noise }) {
       }
       if (current && !current.title && !isNoise(line.text)) { current.title = line.text; continue; }
     }
-    if (!current || isNoise(line.text)) continue;
+    // Company and location follow the title on every board seen so far; text
+    // before it (feedback links, badges) is not a detail of this card.
+    if (!current || !current.title || isNoise(line.text)) continue;
     if (line.text === current.title || current.details.includes(line.text)) continue;
     current.details.push(line.text);
   }

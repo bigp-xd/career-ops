@@ -7,6 +7,8 @@ import { indeed } from '../parsers/indeed.mjs';
 import { ziprecruiter } from '../parsers/ziprecruiter.mjs';
 import { parseAlert, cleanField } from '../parse.mjs';
 import { COMMON_NOISE } from '../cards.mjs';
+import { Buffer } from 'node:buffer';
+import { gzipSync } from 'node:zlib';
 
 const JK = '0123456789abcdef';
 
@@ -76,4 +78,37 @@ test('parseAlert returns clean jobs and counts id-less links', () => {
   const opaque = parseAlert(indeed, '<a href="https://engage.indeed.com/f/a/XYZ123">Event Coordinator</a><div>Beta</div><div>Remote</div>');
   assert.equal(opaque.jobs.length, 1);
   assert.deepEqual(opaque.warnings, ['Indeed: some job links had no job id, so the original links were kept']);
+});
+
+/** A cts.indeed.com tracking link wrapping `target`, the way real Indeed emails do. @param {string} target */
+const ctsLink = (target) => {
+  const payload = { u: target, m: { accountId: '111222333', clickType: 'viewjob', tk: 'abc123def456ghi7' } };
+  return `https://cts.indeed.com/v3/${gzipSync(Buffer.from(JSON.stringify(payload))).toString('base64url')}`;
+};
+
+test('indeed.jobKey reads jk from the compressed payload of a cts.indeed.com link', () => {
+  assert.deepEqual(indeed.jobKey(ctsLink(`https://www.indeed.com/rc/clk?jk=${JK}&from=match&tk=abc`), 'View job'),
+    { key: `indeed:${JK}`, url: `https://www.indeed.com/viewjob?jk=${JK}` });
+  assert.deepEqual(indeed.jobKey(ctsLink(`https://ca.indeed.com/rc/clk?jk=${JK}`), 'Graphic Designer'),
+    { key: `indeed:${JK}`, url: `https://ca.indeed.com/viewjob?jk=${JK}` });
+});
+
+test('a decodable cts.indeed.com link without a jk is a known non-job link, never an opaque job', () => {
+  assert.equal(indeed.jobKey(ctsLink('https://match.indeed.com/invitations/abc?tk=x'), 'This is a bad match'), null);
+  assert.equal(indeed.jobKey(ctsLink('https://profile.indeed.com/'), 'Edit profile'), null);
+});
+
+test('cts.indeed.com payloads that are not gzip JSON, or are oversized, are not trusted', () => {
+  assert.equal(indeed.jobKey('https://cts.indeed.com/v3/not-a-real-payload-at-all', 'Designer'), null);
+  const bomb = gzipSync(Buffer.alloc(200_000, 0x20)).toString('base64url');
+  assert.equal(indeed.jobKey(`https://cts.indeed.com/v3/${bomb}`, 'Designer'), null);
+});
+
+test('parseAlert with allowOpaque: false keeps id-bearing job links only', () => {
+  const html = '<a href="https://engage.indeed.com/f/a/XYZ123">Event Coordinator</a><div>Beta</div>' +
+    `<a href="https://www.indeed.com/viewjob?jk=${JK}">Graphic Designer</a><div>Acme</div><div>Remote</div>`;
+  assert.deepEqual(parseAlert(indeed, html, { allowOpaque: false }), {
+    jobs: [{ title: 'Graphic Designer', company: 'Acme', location: 'Remote', url: `https://www.indeed.com/viewjob?jk=${JK}` }],
+    warnings: [],
+  });
 });

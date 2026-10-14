@@ -5,6 +5,7 @@ import { Buffer } from 'node:buffer';
 import { createSanitizer, buildFixture, fixtureFields } from '../tools/sanitize-eml.mjs';
 import { parseMessage } from '../mime.mjs';
 import { buildEml } from './helpers.mjs';
+import { gzipSync, gunzipSync } from 'node:zlib';
 
 const JK = '0123456789abcdef';
 
@@ -68,4 +69,16 @@ test('fixtureFields restores the original sender of a forwarded alert and labels
   const plain = fixtureFields(msg, s);
   assert.equal(plain.from, 'Test Candidate <candidate@example.com>');
   assert.equal(plain.auth, 'mx.google.com; dkim=pass; dmarc=pass (p=NONE) header.from=gmail.com');
+});
+
+test('scrubUrl rewrites an Indeed cts payload: jk kept, account id and tokens replaced, output stable', () => {
+  const payload = { u: `https://www.indeed.com/rc/clk?jk=${JK}&from=abcdefgh&tk=secrettoken12345`, m: { accountId: '987654321', aggJobId: '10099308448', clickType: 'viewjob' } };
+  const href = `https://cts.indeed.com/v3/${gzipSync(Buffer.from(JSON.stringify(payload))).toString('base64url')}`;
+  const s = createSanitizer();
+  const out = s.scrubUrl(href);
+  assert.equal(s.scrubUrl(href), out);
+  const seg = new URL(out).pathname.split('/')[2];
+  const decoded = JSON.parse(gunzipSync(Buffer.from(seg, 'base64url')).toString('utf8'));
+  assert.equal(new URL(decoded.u).searchParams.get('jk'), JK);
+  assert.doesNotMatch(JSON.stringify(decoded), /987654321|secrettoken12345|abcdefgh/);
 });

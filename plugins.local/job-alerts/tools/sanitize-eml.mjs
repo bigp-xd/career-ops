@@ -12,7 +12,9 @@
 // placeholders REDACTED1, REDACTED2, ... so distinct links stay distinct. Job
 // identifiers (jk, vjk, jid, currentJobId, numeric LinkedIn ids) are kept.
 // Always read the output before committing it.
+import { Buffer } from 'node:buffer';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { domainOf, senderAddress } from '../auth.mjs';
 import { parseMessage } from '../mime.mjs';
 import { isMainModule } from '../../../lib/is-main-module.mjs';
@@ -23,6 +25,7 @@ const TOKEN_SEGMENT = /^[A-Za-z0-9_\-.~%=]{20,}$/;
 const SLUG_WITH_ID = /^[a-z0-9-]*-\d{6,}$/i;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
 const BOARD_ADDRESS = /@([a-z0-9-]+\.)*(indeed|linkedin|ziprecruiter)\.com$/i;
+const INDEED_CTS = /^cts\.indeed\.com$/i;
 
 /** @param {string} s */
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -50,14 +53,32 @@ export function createSanitizer(replacements = []) {
     return /** @type {string} */ (tokens.get(value));
   };
 
+  /**
+   * An Indeed cts.indeed.com payload (base64url(gzip(JSON))) re-encoded with
+   * its target URL scrubbed and every metadata value of 6+ characters
+   * (account id, tokens) replaced. null when the segment is not one.
+   * @param {string} seg @param {number} depth
+   */
+  function scrubIndeedPayload(seg, depth) {
+    let data;
+    try { data = JSON.parse(gunzipSync(Buffer.from(seg, 'base64url'), { maxOutputLength: 64 * 1024 }).toString('utf8')); } catch { return null; }
+    if (!data || typeof data !== 'object') return null;
+    const meta = Object.fromEntries(Object.entries(data.m ?? {})
+      .map(([k, v]) => [k, typeof v === 'string' && v.length >= 6 ? placeholder(v) : v]));
+    const scrubbed = { u: typeof data.u === 'string' ? scrubUrl(data.u, depth + 1) : '', m: meta };
+    return gzipSync(Buffer.from(JSON.stringify(scrubbed), 'utf8')).toString('base64url');
+  }
+
   /** @param {string} href @param {number} [depth] @returns {string} */
   function scrubUrl(href, depth = 0) {
     let u;
     try { u = new URL(href); } catch { return href; }
     u.username = '';
     u.password = '';
+    const cts = INDEED_CTS.test(u.hostname);
     u.pathname = u.pathname.split('/')
-      .map(seg => (TOKEN_SEGMENT.test(seg) && !SLUG_WITH_ID.test(seg) ? placeholder(seg) : seg))
+      .map(seg => (cts && seg.length >= 16 && scrubIndeedPayload(seg, depth))
+        || (TOKEN_SEGMENT.test(seg) && !SLUG_WITH_ID.test(seg) ? placeholder(seg) : seg))
       .join('/');
     for (const [key, value] of [...u.searchParams]) {
       if (KEEP_PARAMS.has(key.toLowerCase())) continue;

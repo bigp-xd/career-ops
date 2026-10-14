@@ -5,7 +5,7 @@
 // Network only through ctx.fetch (manifest allowedHosts: Google's token and
 // Gmail endpoints). Nothing here contacts the job boards themselves.
 import { isGoogleDmarcPass, senderAddress } from './auth.mjs';
-import { boardForSender } from './boards.mjs';
+import { boardForDomain, boardForSender } from './boards.mjs';
 import { fetchRawMessage, getAccessToken, listMessageIds } from './gmail.mjs';
 import { parseMessage } from './mime.mjs';
 import { cleanField, parseAlert } from './parse.mjs';
@@ -27,8 +27,9 @@ export function readSettings(settings = {}) {
 }
 
 /**
- * @typedef {{ id: string, jobs: import('./parse.mjs').Job[], warnings: string[], done: boolean }} MessageResult
+ * @typedef {{ id: string, jobs: import('./parse.mjs').Job[], warnings: string[], done: boolean, other?: string }} MessageResult
  * `done` = record the message as processed (false means retry on the next run).
+ * `other` = sender address of board-domain mail skipped for having no job links.
  */
 
 /**
@@ -59,6 +60,7 @@ export function createIngest({ statePath, budgetMs = DEFAULTS.budgetMs, concurre
     const jobs = [];
     const seen = new Set();
     const warnings = new Set();
+    const others = new Set();
     let read = 0;
     for (let i = 0; i < todo.length; i += concurrency) {
       if (now() - started >= budgetMs) break;
@@ -66,6 +68,7 @@ export function createIngest({ statePath, budgetMs = DEFAULTS.budgetMs, concurre
       for (const r of results) {
         read++;
         for (const w of r.warnings) warnings.add(w);
+        if (r.other) others.add(r.other);
         if (r.done) processed.add(r.id);
         for (const job of r.jobs) {
           const key = ctx.normalizePostingUrl?.(job.url) || job.url;
@@ -77,6 +80,7 @@ export function createIngest({ statePath, budgetMs = DEFAULTS.budgetMs, concurre
     }
 
     for (const w of warnings) ctx.log(`job-alerts: ⚠ ${w}`);
+    if (others.size) ctx.log(`job-alerts: skipped other mail with no job links from ${[...others].join(', ')} (not a known alert sender).`);
     const left = todo.length - read;
     if (left > 0) ctx.log(`job-alerts: ${left} alert email(s) not read yet (time limit). Run it again to continue.`);
     ctx.log(`job-alerts: read ${read} new email(s), found ${jobs.length} job(s).`);
@@ -97,12 +101,21 @@ async function readOne(ctx, token, id) {
   }
   const subject = cleanField(msg.get('subject')).slice(0, 100) || '(no subject)';
   const date = cleanField(msg.get('date'));
-  const board = boardForSender(senderAddress(msg.get('from')));
+  const address = senderAddress(msg.get('from'));
+  // A confirmed alert sender gets the full treatment, including the "format
+  // changed" warning. Any other address on a board's own domain (an alert
+  // type not seen yet, a recruiter message) is read for id-bearing job links
+  // only, and skipped quietly when it has none.
+  const alertBoard = boardForSender(address);
+  const board = alertBoard ?? boardForDomain(address);
   if (!board) return skip('', true);
   if (!isGoogleDmarcPass(msg)) return skip(`skipped "${subject}": it failed Gmail's anti-spoofing check`, true);
-  if (!msg.html) return skip(`${board.label} alert "${subject}" (${date}) has no HTML part; it will be retried`, false);
-  const { jobs, warnings } = parseAlert(board, msg.html);
+  if (!msg.html) {
+    return alertBoard ? skip(`${board.label} alert "${subject}" (${date}) has no HTML part; it will be retried`, false) : { ...skip('', true), other: address };
+  }
+  const { jobs, warnings } = parseAlert(board, msg.html, { allowOpaque: Boolean(alertBoard) });
   if (jobs.length === 0) {
+    if (!alertBoard) return { ...skip('', true), other: address };
     return { id, jobs: [], warnings: [...warnings, `found no jobs in ${board.label} alert "${subject}" (${date}); the email format may have changed, so it will be retried`], done: false };
   }
   return { id, jobs, warnings, done: true };

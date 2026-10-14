@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { senderAddress, domainOf, isGoogleDmarcPass } from '../auth.mjs';
-import { boardForSender } from '../boards.mjs';
+import { boardForSender, boardForDomain } from '../boards.mjs';
 import { parseMessage } from '../mime.mjs';
 import { buildEml } from './helpers.mjs';
 
@@ -45,9 +45,18 @@ test('isGoogleDmarcPass trusts only the topmost, Gmail-written header', () => {
 test('boardForSender matches alert senders only', () => {
   assert.equal(boardForSender('jobalerts-noreply@linkedin.com')?.id, 'linkedin');
   assert.equal(boardForSender('messages-noreply@linkedin.com'), null);
-  assert.equal(boardForSender('alert@jobalert.indeed.com')?.id, 'indeed');
+  assert.equal(boardForSender('donotreply@match.indeed.com')?.id, 'indeed');
+  assert.equal(boardForSender('alert@indeed.com'), null);
   assert.equal(boardForSender('alerts@ziprecruiter.com')?.id, 'ziprecruiter');
   assert.equal(boardForSender('jobalerts-noreply@notlinkedin.com'), null);
   assert.equal(boardForSender('jobalerts-noreply@linkedin.com.evil.test'), null);
   assert.equal(boardForSender(''), null);
+});
+
+test('boardForDomain matches any address on a board\'s own domain', () => {
+  assert.equal(boardForDomain('alert@indeed.com')?.id, 'indeed');
+  assert.equal(boardForDomain('messages-noreply@linkedin.com')?.id, 'linkedin');
+  assert.equal(boardForDomain('someone@mail.ziprecruiter.com')?.id, 'ziprecruiter');
+  assert.equal(boardForDomain('me@notindeed.com'), null);
+  assert.equal(boardForDomain(''), null);
 });

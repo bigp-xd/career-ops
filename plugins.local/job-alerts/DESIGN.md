@@ -78,12 +78,16 @@ same code path in tests as live mail does in production.
 4. For each message not already in the processed record (newest first, four
    at a time, within a 12-second budget):
    - **Sender gate:** the `From` address domain must be `indeed.com`,
-     `linkedin.com` or `ziprecruiter.com` (or a subdomain), **and** the address
-     must match that board's alert-sender pattern (LinkedIn also sends
-     messages and invitations from `linkedin.com`; those are not alerts). The
-     matched board picks the parser. Checked first so unrelated mail in the
-     label is ignored without warnings. Each board's pattern is confirmed
-     from the sample emails.
+     `linkedin.com` or `ziprecruiter.com` (or a subdomain); that picks the
+     parser. Mail from anywhere else is ignored silently. Within a board:
+     - a **confirmed alert sender** (each board's `senders` pattern, taken
+       from real sample emails) gets the full treatment, including the
+       "format may have changed" warning;
+     - **any other address on the board's domain** (an alert type not seen
+       yet, LinkedIn messages, Indeed application receipts) is read for
+       id-bearing job links only, never the opaque-link fallback, and is
+       skipped quietly when it has none; the run log names such senders once,
+       so a missed alert type can be added to `senders`.
    - **Authenticity gate:** the topmost `Authentication-Results` header
      (Gmail's own) must have authserv-id `mx.google.com` and report
      `dmarc=pass` with `header.from` equal to the From address's domain.
@@ -110,8 +114,14 @@ Each parser:
 - Produces a canonical URL from the card's link, without any network request:
   - LinkedIn: `https://www.linkedin.com/jobs/view/{id}/` (id from `/jobs/view/{id}` or
     `/comm/jobs/view/{id}`; tracking query dropped).
-  - Indeed: `https://www.indeed.com/viewjob?jk={jk}` when the link carries a `jk`
-    (directly or inside an encoded target parameter).
+  - Indeed: every link is `cts.indeed.com/v3/<base64url(gzip(JSON))>`; the JSON's
+    `u` is the real target, and a job target carries `jk`. The payload is
+    decoded locally (gunzip capped at 64 KiB). Canonical
+    `https://www.indeed.com/viewjob?jk={jk}` (two-letter country host kept). A
+    decodable payload without `jk` ("This is a bad match", Yes/No, profile and
+    footer links) is never a job; only non-cts Indeed links fall back to the
+    opaque link. Older formats with `jk` directly in the URL or in an encoded
+    redirect are still read.
   - ZipRecruiter: canonical form decided from the sample emails.
   - When a link carries no extractable id, keep the original link (it still
     opens the posting in a browser) and add a warning. Never follow the redirect.
@@ -137,7 +147,8 @@ these four fields; nothing in an email is treated as an instruction.
 | Label has no messages | Return `[]`, log the query |
 | One message fails to fetch | Warn, skip, do not mark processed |
 | DMARC fails | Warn with the subject, mark processed |
-| Sender is not a known alert sender (other mail, LinkedIn messages, the candidate forwarding an alert) | Ignore silently, mark processed |
+| Sender is not on any board's domain (other mail, the candidate forwarding an alert) | Ignore silently, mark processed |
+| Sender is on a board's domain but not a confirmed alert sender | Read id-bearing job links only; if none, skip quietly, mark processed, name the sender once in the run log |
 | Known sender, zero cards found | Warn with subject + date, **do not** mark processed, so a parser fix picks it up on the next run |
 | Link without an id | Keep the original link, warn once per board per run |
 | Known sender, no HTML part | Warn, **do not** mark processed |
@@ -226,5 +237,5 @@ registry, this helper has to move out of the plugin folder.
 
 ## Open items
 
-- Exact link formats for Indeed and ZipRecruiter alerts: settled once the
-  sample emails arrive. Implementation of those two parsers waits on them.
+- Exact link format for ZipRecruiter alerts: settled once the sample email
+  is in.

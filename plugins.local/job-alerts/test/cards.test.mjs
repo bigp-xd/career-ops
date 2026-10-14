@@ -75,6 +75,12 @@ test('a job linked again later (summary list) does not collect stray text', () =
   assert.equal(first.location, 'Toronto');
 });
 
+test('text between a card\'s first link and its title is not taken as company or location', () => {
+  const html = '<a href="https://jobs.test/view/7">View job</a><a href="https://jobs.test/feedback">This is a bad match</a>' +
+    '<a href="https://jobs.test/view/7">US English Transcriber</a><p>Lionbridge</p><p>Remote</p>';
+  assert.deepEqual(cardsOf(html).map(c => [c.title, c.company, c.location]), [['US English Transcriber', 'Lionbridge', 'Remote']]);
+});
+
 test('a card with no usable title is dropped', () => {
   const html = '<a href="https://jobs.test/view/5"><img src="https://img.test/x.png"></a><a href="https://jobs.test/view/5">View job</a>';
   assert.deepEqual(cardsOf(html), []);

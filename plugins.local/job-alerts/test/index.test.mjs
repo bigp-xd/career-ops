@@ -135,3 +135,30 @@ test('decodes accented, quoted-printable alerts end to end', async () => {
   const [job] = await createIngest({ statePath: tmpState() })(fakeCtx({ fetch }).ctx);
   assert.deepEqual([job.title, job.company, job.location], ['Diseñadora Gráfica', 'Café & Co', 'Montréal, QC']);
 });
+
+const JK = '0123456789abcdef';
+const indeedAuth = ['mx.google.com; dkim=pass; dmarc=pass (p=REJECT) header.from=indeed.com'];
+
+test('reads id-bearing jobs from an unrecognised sender on a board domain', async () => {
+  const statePath = tmpState();
+  const html = `<a href="https://www.indeed.com/viewjob?jk=${JK}">Graphic Designer</a><p>Acme</p><p>Remote</p>` +
+    '<a href="https://engage.indeed.com/f/a/XYZ123">Update your profile today</a>';
+  const { fetch } = fakeGmail({ messages: { m1: buildEml({ from: 'Indeed <alert@indeed.com>', auth: indeedAuth, html }) } });
+  const { ctx, logs } = fakeCtx({ fetch });
+  assert.deepEqual(await createIngest({ statePath })(ctx), [
+    { title: 'Graphic Designer', company: 'Acme', location: 'Remote', url: `https://www.indeed.com/viewjob?jk=${JK}` },
+  ]);
+  assert.ok(!logs.some(l => l.includes('⚠')));
+  assert.deepEqual(savedIds(statePath), ['m1']);
+});
+
+test('other mail from a board domain with no job links is skipped quietly, naming the sender once', async () => {
+  const statePath = tmpState();
+  const other = (n) => buildEml({ from: 'Indeed <donotreply@indeed.com>', auth: indeedAuth, html: `<p>Your application ${n} was sent</p>` });
+  const { fetch } = fakeGmail({ messages: { m1: other(1), m2: other(2) } });
+  const { ctx, logs } = fakeCtx({ fetch });
+  assert.deepEqual(await createIngest({ statePath })(ctx), []);
+  assert.ok(!logs.some(l => l.includes('⚠')));
+  assert.equal(logs.filter(l => l.includes('donotreply@indeed.com')).length, 1);
+  assert.deepEqual(savedIds(statePath), ['m1', 'm2']);
+});
