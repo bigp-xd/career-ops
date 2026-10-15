@@ -109,6 +109,7 @@ config/benchmarks.yml
 # project, and must survive the sync that overwrites update-system.mjs (#2421).
 config/local-paths.txt
 portals.yml
+!presets/bridge/portals.yml
 modes/_profile.md
 modes/_custom.md
 modes/_brief.md

@@ -584,6 +584,7 @@ const SYSTEM_PATHS = [
   'seed-fixture.mjs',
   'test-fixtures/',
   'upgrade-tests.mjs',
+  'presets/',
 ];
 
 const BOOTSTRAP_PATHS = [

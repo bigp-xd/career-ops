@@ -1,5 +1,9 @@
 # Career-Ops -- AI Job Search Pipeline
 
+## This Fork: Bridge-Job Preset
+
+This fork is preconfigured for a full-time "bridge job" search: stable, contained, low-stakes, remote or hybrid, leaving energy for a side business. **If `modes/_profile.md` does not exist yet, follow `presets/bridge/SETUP.md` for onboarding, starting with `node presets/bridge/install.mjs`.** The installer copies the preset into her own user-layer files, so later `git pull` updates never change it.
+
 ## Origin
 
 Built and used by [santifer](https://santifer.io) to evaluate 740+ offers, generate 100+ tailored CVs, and land a Head of Applied AI role. The archetypes, scoring, and negotiation scripts reflect that search; his portfolio is also open source: [cv-santiago](https://github.com/santifer/cv-santiago).

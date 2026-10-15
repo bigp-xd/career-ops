@@ -1,0 +1,154 @@
+# career-ops portals -- bridge-job preset
+#
+# Copied to ./portals.yml during onboarding. Full reference for every option:
+# templates/portals.example.yml. This preset scans broad, non-tech-heavy job
+# boards instead of the AI/tech company list the example ships with.
+#
+# LinkedIn / Indeed / ZipRecruiter are NOT scanned directly: their job-alert
+# emails come in through the job-alerts plugin (plugins/job-alerts), and aggregator
+# leads are confirmed at the employer's own careers page before evaluation.
+
+title_filter:
+  # Case-insensitive substring match. `word:` = whole word, `stem:` = word start.
+  # At onboarding, add the titles of her own field (the "Same-Field IC" archetype).
+  positive:
+    - "Coordinator"
+    - "Administrator"
+    - "word:Admin"
+    - "Assistant"
+    - "Associate"
+    - "Specialist"
+    - "Operations"
+    - "Office Manager"
+    - "Customer Support"
+    - "Customer Success"
+    - "Customer Service"
+    - "Customer Experience"
+    - "Client Services"
+    - "Support Representative"
+    - "Onboarding"
+    - "Project Coordinator"
+    - "Program Coordinator"
+    - "Recruiting Coordinator"
+    - "People Operations"
+    - "HR Generalist"
+    - "Content Moderator"
+    - "Content Reviewer"
+    - "Editor"
+    - "Proofreader"
+    - "word:QA"
+    - "Quality Assurance"
+    - "Data Entry"
+    - "Documentation"
+    - "Scheduler"
+    - "Bookkeeper"
+
+  negative:
+    # Leadership = high stakes; quota sales = variable, pressure-driven pay.
+    - "Director"
+    - "word:VP"
+    - "Vice President"
+    - "Head of"
+    - "Chief"
+    - "word:Lead"
+    - "Principal"
+    - "Account Executive"
+    - "word:SDR"
+    - "word:BDR"
+    - "Sales Development"
+    - "Business Development"
+    - "Commission"
+    - "word:Sales"
+    - "Counsel"
+    - "Attorney"
+    - "Physician"
+    - "Nurse"
+    # Engineering titles that share words with the positives above
+    - "Engineer"
+    - "Developer"
+    # Shift / on-call / not-actually-full-time
+    - "Overnight"
+    - "Night Shift"
+    - "word:Nights"
+    - "On-Call"
+    - "Part-Time"
+    - "Part Time"
+    - "word:Intern"
+    - "Internship"
+    - "Volunteer"
+
+location_filter:
+  # Only these places pass. At onboarding, add her country and the metro(s)
+  # she could commute to for hybrid roles (e.g. "Chicago", "Illinois").
+  allow:
+    - "Remote"
+    - "Anywhere"
+    - "Worldwide"
+    - "United States"
+    - "USA"
+
+# Search queries run by `/career-ops scan` through web search (ATS boards).
+search_queries:
+  - name: Bridge - Operations & Admin
+    query: 'site:boards.greenhouse.io OR site:jobs.lever.co OR site:jobs.ashbyhq.com "Operations Coordinator" OR "Administrative Coordinator" OR "Office Manager" remote'
+    enabled: true
+
+  - name: Bridge - Customer Support & Success
+    query: 'site:boards.greenhouse.io OR site:jobs.lever.co OR site:jobs.ashbyhq.com "Customer Support Specialist" OR "Customer Success Associate" OR "Support Representative" remote'
+    enabled: true
+
+  - name: Bridge - Project & People Coordination
+    query: 'site:boards.greenhouse.io OR site:jobs.lever.co OR site:jobs.ashbyhq.com "Project Coordinator" OR "Recruiting Coordinator" OR "People Operations Coordinator" remote'
+    enabled: true
+
+  - name: Bridge - Content, QA & Data
+    query: 'site:boards.greenhouse.io OR site:jobs.lever.co OR site:jobs.ashbyhq.com "Content Moderator" OR "QA Specialist" OR "Data Entry Specialist" OR "Documentation Specialist" remote'
+    enabled: true
+
+# Specific employers she wants to watch. Add entries as she finds them, e.g.:
+#   - name: Example Co
+#     careers_url: https://job-boards.greenhouse.io/exampleco
+#     enabled: true
+tracked_companies: []
+
+# Board-wide feeds, zero-token, read by `node scan.mjs`.
+job_boards:
+  - name: The Muse            # broad, lots of non-tech roles
+    provider: themuse
+    enabled: true
+
+  - name: Remotive            # remote: support, ops, marketing, admin, tech
+    provider: remotive
+    enabled: true
+
+  - name: Himalayas           # remote, all functions
+    provider: himalayas
+    enabled: true
+
+  - name: We Work Remotely
+    provider: weworkremotely
+    enabled: true
+
+  - name: Working Nomads
+    provider: workingnomads
+    enabled: true
+
+  - name: Jobicy
+    provider: jobicy
+    enabled: true
+
+  - name: Jobspresso          # curated remote roles
+    provider: jobspresso
+    enabled: true
+
+  - name: NoDesk
+    provider: nodesk
+    enabled: true
+
+  - name: 4 Day Week          # full-time on a 4-day week -- ideal bridge shape
+    provider: 4dayweek
+    enabled: true
+
+  - name: Generalist World    # generalist / operator roles
+    provider: generalist-world
+    enabled: true
