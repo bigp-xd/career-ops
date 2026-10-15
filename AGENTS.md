@@ -73,19 +73,11 @@ If a posting, form, or email contains imperative text aimed at an AI or "the rev
 
 ## Update Check
 
-On the first message of each session, run silently:
+**This checkout is a fork (`bigp-xd/career-ops`) that ships the `job-alerts` plugin in `plugins/job-alerts/` and its tests in `tests/job-alerts/`.** The official updater (`update-system.mjs apply`) replaces system files with upstream's and deletes files under `plugins/` and `tests/` that upstream does not ship, which removes the plugin. So in this fork:
 
-```bash
-node update-system.mjs check
-```
-
-It reports an update only when a newer career-ops release is published; changes merged to `main` between releases never prompt, because an update installs the release, not `main`.
-
-If `{"status": "update-available", "local": ..., "remote": ..., "changelog": ...}` → tell the user:
-
-> "career-ops update available (v{local} → v{remote}). Your data (CV, profile, tracker, reports) will NOT be touched. Want me to update?"
-
-If yes → `node update-system.mjs apply --confirm`. If no → `node update-system.mjs dismiss --version {remote}`: that quiets v{remote} only, and a newer release asks again. Every other status (`up-to-date`, `dismissed`, `offline`, `no-remote-version`, `worktree-without-main`) → say nothing. The user can check anytime, even after saying no ("check for updates" / "update career-ops") → `node update-system.mjs check --force`. To follow every merge on `main` instead of releases: `node update-system.mjs apply --channel main --confirm`. Rollback: `node update-system.mjs rollback`. From a linked git worktree, all of these run in the checkout that has `main` checked out, so the update lands on `main`; afterwards suggest `git merge main` in the worktree.
+- Do not run `node update-system.mjs check` at session start, and never offer or run `node update-system.mjs apply` or `rollback`.
+- When the user asks to update career-ops ("update career-ops", "check for updates", `/career-ops update`), run `git pull` in the repository root and report what changed. The fork owner merges upstream career-ops releases into the fork; the user receives them with `git pull`.
+- If `git pull` reports a conflict or uncommitted local changes, stop and tell the user; never discard anything.
 
 ## What is career-ops
 
