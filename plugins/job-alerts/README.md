@@ -28,24 +28,21 @@ and private to you.
 
 ## 2. Connect your Gmail
 
-1. In the career-ops folder, open the file `.env` (create it if it does not
-   exist) and add two lines with your values:
+Open a terminal window in the career-ops folder. Run this yourself rather than
+asking Codex to, because it waits for you to sign in:
 
-   ```
-   GMAIL_CLIENT_ID=paste-the-client-id
-   GMAIL_CLIENT_SECRET=paste-the-client-secret
-   ```
+```bash
+node plugins/job-alerts/connect-gmail.mjs --write
+```
 
-2. In a terminal in the career-ops folder, run:
-
-   ```bash
-   node plugins/job-alerts/connect-gmail.mjs --write
-   ```
-
-   Open the link it prints and pick your Gmail account. Google warns that the
-   app is not verified; that is expected for your own app. Click
-   **Advanced → Go to career-ops**, then allow **Read your email messages**.
-   The terminal then shows `✓ Saved GMAIL_REFRESH_TOKEN`.
+1. It asks for the **Client ID** and **Client secret** from step 1.6. Paste
+   each one and press Enter; it saves them for you. (Google shows the client
+   secret only once. On that screen, click **Download JSON** to keep a copy.)
+2. It prints a link. Open it in your browser and pick your Gmail account.
+   Google warns that the app is not verified; that is expected for your own
+   app. Click **Advanced → Go to career-ops**, then allow **Read your email
+   messages**.
+3. The terminal shows `✓ Saved GMAIL_REFRESH_TOKEN`. You are connected.
 
 ## 3. Turn on job alerts
 

@@ -32,13 +32,30 @@ const BLOCK_NAME = new RegExp(`^(?:${BLOCK_NAMES})$`, 'i');
 const TOKEN = /<a\b([^>]*)>([\s\S]*?)<\/a\s*>|<\/?([a-z][a-z0-9]*)\b[^>]*>|([^<]+)|</gi;
 const SEPARATOR = /\s[·•]\s/;
 
-/** @type {Record<string, string>} */
-const ENTITIES = {
-  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', middot: '·', bull: '•', ndash: '–', mdash: '—',
-  hellip: '…', rsquo: '’', lsquo: '‘', ldquo: '“', rdquo: '”', zwnj: '', zwj: '', shy: '', copy: '©', reg: '®',
-  trade: '™', eacute: 'é', Eacute: 'É', egrave: 'è', agrave: 'à', aacute: 'á', iacute: 'í', oacute: 'ó',
-  uacute: 'ú', ntilde: 'ñ', uuml: 'ü', ouml: 'ö', auml: 'ä', ccedil: 'ç',
+// HTML named entities: the full Latin-1 set (U+00A0..U+00FF, in code-point
+// order) plus the typographic ones alert emails use. Built from code points so
+// no invisible character has to sit in this source file.
+const LATIN1_NAMES = (
+  'nbsp iexcl cent pound curren yen brvbar sect uml copy ordf laquo not shy reg macr ' +
+  'deg plusmn sup2 sup3 acute micro para middot cedil sup1 ordm raquo frac14 frac12 frac34 iquest ' +
+  'Agrave Aacute Acirc Atilde Auml Aring AElig Ccedil Egrave Eacute Ecirc Euml Igrave Iacute Icirc Iuml ' +
+  'ETH Ntilde Ograve Oacute Ocirc Otilde Ouml times Oslash Ugrave Uacute Ucirc Uuml Yacute THORN szlig ' +
+  'agrave aacute acirc atilde auml aring aelig ccedil egrave eacute ecirc euml igrave iacute icirc iuml ' +
+  'eth ntilde ograve oacute ocirc otilde ouml divide oslash ugrave uacute ucirc uuml yacute thorn yuml'
+).split(' ');
+const OTHER_CODE_POINTS = {
+  OElig: 0x152, oelig: 0x153, Scaron: 0x160, scaron: 0x161, Yuml: 0x178, fnof: 0x192, circ: 0x2c6, tilde: 0x2dc,
+  ensp: 0x2002, emsp: 0x2003, thinsp: 0x2009, ndash: 0x2013, mdash: 0x2014, lsquo: 0x2018, rsquo: 0x2019,
+  sbquo: 0x201a, ldquo: 0x201c, rdquo: 0x201d, bdquo: 0x201e, dagger: 0x2020, Dagger: 0x2021, bull: 0x2022,
+  hellip: 0x2026, permil: 0x2030, prime: 0x2032, lsaquo: 0x2039, rsaquo: 0x203a, euro: 0x20ac, trade: 0x2122,
+  larr: 0x2190, rarr: 0x2192,
 };
+/** @type {Record<string, string>} */
+const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+LATIN1_NAMES.forEach((name, i) => { ENTITIES[name] = String.fromCharCode(0xa0 + i); });
+for (const [name, cp] of Object.entries(OTHER_CODE_POINTS)) ENTITIES[name] = String.fromCharCode(cp);
+// Invisible formatting: soft hyphen, zero-width joiners, direction marks.
+for (const name of ['shy', 'zwnj', 'zwj', 'lrm', 'rlm']) ENTITIES[name] = '';
 
 /** @param {string} s */
 export function decodeEntities(s) {

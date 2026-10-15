@@ -91,3 +91,9 @@ test('button and footer phrases are noise, real locations are not', () => {
   for (const t of ['View More Jobs', 'View Details', 'See all jobs', '1-Click Apply', 'Easy Apply', '3 days ago', '$48K - $65K / yr']) assert.ok(noisy(t), t);
   for (const t of ['New York, NY', 'Save the Children', 'San Jose, CA • In-person', 'Applied Materials']) assert.ok(!noisy(t), t);
 });
+
+test('decodeEntities covers the Latin-1 named set and common typographic entities', () => {
+  assert.equal(decodeEntities('S&atilde;o Paulo, Z&Uuml;RICH, F&ecirc;te, Ma&icirc;tre, &euro;50k, caf&eacute;, co&shy;ordinator'),
+    'São Paulo, ZÜRICH, Fête, Maître, €50k, café, coordinator');
+  assert.equal(decodeEntities('&iquest;&Agrave;&yuml;&OElig;&ndash;&hellip;'), '¿Àÿ' + String.fromCharCode(0x152) + '–…');
+});

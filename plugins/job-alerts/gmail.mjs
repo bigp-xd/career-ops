@@ -65,13 +65,14 @@ export async function listMessageIds(fetchFn, token, query, max = 500) {
 }
 
 /**
- * The full RFC 822 message (Gmail format=raw).
- * @param {FetchFn} fetchFn @param {string} token @param {string} id
+ * The full RFC 822 message (Gmail format=raw). `timeoutMs` is passed to the
+ * fetch function (ctx.fetch aborts the request when it runs out).
+ * @param {FetchFn} fetchFn @param {string} token @param {string} id @param {{ timeoutMs?: number }} [opts]
  * @returns {Promise<Buffer>}
  */
-export async function fetchRawMessage(fetchFn, token, id) {
+export async function fetchRawMessage(fetchFn, token, id, { timeoutMs } = {}) {
   const url = `${GMAIL_API}/messages/${encodeURIComponent(id)}?format=raw`;
-  const data = await (await fetchFn(url, { headers: { Authorization: `Bearer ${token}` } })).json();
+  const data = await (await fetchFn(url, { headers: { Authorization: `Bearer ${token}` }, ...(timeoutMs ? { timeoutMs } : {}) })).json();
   if (typeof data.raw !== 'string') throw new Error('Gmail returned no raw message body');
   return Buffer.from(data.raw, 'base64url');
 }

@@ -131,6 +131,9 @@ Each parser:
     Login-like query parameters (`auth_token`, `contact_id`, `expires`,
     `email`, …) are removed first: ZipRecruiter puts a login for the
     recipient's account on every job link, and a lead must not carry it.
+- Accepts an id-less (opaque) card only when the email links that same target at
+  least twice (the real ZipRecruiter card links its title and "View Details" to
+  one URL); a lone id-less link is a promo ("Complete Your Profile").
 - Ignores everything that is not a job card: logos, footer, "see all jobs",
   settings, unsubscribe, app-store badges.
 - Returns `jobs: []` plus a warning when it recognizes the sender but finds no
@@ -154,27 +157,36 @@ these four fields; nothing in an email is treated as an instruction.
 | One message fails to fetch | Warn, skip, do not mark processed |
 | DMARC fails | Warn with the subject, mark processed |
 | Sender is not on any board's domain (other mail, the candidate forwarding an alert) | Ignore silently, mark processed |
-| Sender is on a board's domain but not a confirmed alert sender | Read id-bearing job links only; if none, skip quietly, mark processed, name the sender once in the run log |
+| Sender is on a board's domain but not a confirmed alert sender | Read id-bearing job links only. If none but the email would yield id-less job cards, warn (naming the address and the parser file to add it to) and **do not** mark processed, so adding the sender recovers it within `days_back`. Otherwise skip quietly, mark processed, name the sender once in the run log |
 | Known sender, zero cards found | Warn with subject + date, **do not** mark processed, so a parser fix picks it up on the next run |
 | Link without an id | Keep the original link, warn once per board per run |
 | Known sender, no HTML part | Warn, **do not** mark processed |
-| Many unread alerts (the engine kills an ingest hook after 15 s) | Stop starting new emails after 12 s, return the jobs found so far, save progress, log how many emails remain and to run again |
+| Many unread alerts (the engine stops waiting for an ingest hook after 15 s but cannot stop it) | No new batch after 12 s; a batch still running at 13.5 s is abandoned (each raw fetch also carries the remaining time as its timeout) and its emails stay unread; jobs from finished batches are returned and progress saved. Nothing is saved after 14 s, so the engine never drops jobs from emails already marked read. A dry run says a real run continues, rather than "run it again" |
 | Label name contains `"` | Throw: it would break the Gmail search |
 | `--dry-run` | Parse and return as normal; do not write the processed record |
 
 ## State
 
-`{DATA_ROOT}/data/job-alerts-state.json` — `{ "processed_message_ids": [...] }`.
+`{DATA_ROOT}/data/job-alerts-state.json` — `{ "processed_message_ids": [...], "emitted_keys": [...] }`.
 `DATA_ROOT` from `getCareerOpsRoot()` in `path-resolver.mjs`, as AGENTS.md
-requires for new scripts. Capped at the most recent 5,000 ids. `data/*` is
+requires for new scripts. Each list is capped at its newest 5,000 entries. `data/*` is
 gitignored, so it never reaches the fork.
+
+`emitted_keys` remembers every lead handed to the pipeline as `url:<canonical
+URL>` and, when the company is known, `fp:<board>|<title>|<company>|<location>`
+(lower-cased). A job matching either key is not returned again, in the same run
+or later: the engine only dedups against pending pipeline lines, and id-less
+ZipRecruiter links differ in every email. Dry runs never write it.
 
 ## connect-gmail.mjs
 
 Standalone CLI, not part of the ingest hook.
 
-1. Reads `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` from `.env` in the data root
-   (error with README pointer if absent).
+1. Reads `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` from `.env` in the data root.
+   When either is missing and a person is at the keyboard (stdin is a TTY), it
+   asks for them and saves them to `.env` (mode 600), so nobody edits a hidden
+   file; otherwise it exits naming what is missing. It does not open the browser
+   itself: bundled plugins may not import `child_process` (test-all no-spawn guard).
 2. Starts a `node:http` listener on `127.0.0.1` with a random free port
    (Google's supported loopback flow for desktop apps).
 3. Prints a Google sign-in URL: scope `gmail.readonly`, `access_type=offline`,

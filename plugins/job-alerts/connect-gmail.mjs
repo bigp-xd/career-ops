@@ -10,6 +10,7 @@
 // The ingest hook never imports this file (it uses node:http and global fetch,
 // which hook code must not).
 import http from 'node:http';
+import readline from 'node:readline/promises';
 import { createHash, randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -86,14 +87,42 @@ export function upsertEnvValue(text, key, value) {
   return `${text && !text.endsWith('\n') ? `${text}\n` : text}${line}\n`;
 }
 
+/**
+ * Client ID and secret from .env; when they are missing and someone is at the
+ * keyboard, ask for them and save them, so nobody has to edit a hidden file.
+ * @param {string} envFile
+ */
+async function ensureClientCreds(envFile) {
+  const text = existsSync(envFile) ? readFileSync(envFile, 'utf8') : '';
+  try {
+    return readClientCreds(text);
+  } catch (err) {
+    if (!process.stdin.isTTY) throw new Error(`${/** @type {Error} */ (err).message} Or run this command yourself in a terminal: it asks for them.`);
+  }
+  console.log('\nPaste the two values from your Google Cloud "Desktop app" client (README, step 1).');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const clientId = (await rl.question('Client ID: ')).trim();
+    const clientSecret = (await rl.question('Client secret: ')).trim();
+    if (!clientId || !clientSecret) throw new Error('both the Client ID and the Client secret are needed');
+    const next = upsertEnvValue(upsertEnvValue(text, 'GMAIL_CLIENT_ID', clientId), 'GMAIL_CLIENT_SECRET', clientSecret);
+    writeFileSync(envFile, next, { encoding: 'utf8', mode: 0o600 });
+    chmodSync(envFile, 0o600);
+    console.log(`✓ Saved them to ${envFile}.`);
+    return { clientId, clientSecret };
+  } finally {
+    rl.close();
+  }
+}
+
 /** @param {string} s */
 const escapeHtml = (s) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c);
 
 const USAGE = `Usage: node plugins/job-alerts/connect-gmail.mjs [--write]
 
 One-time Gmail sign-in for the job-alerts plugin. Reads GMAIL_CLIENT_ID and
-GMAIL_CLIENT_SECRET from .env, prints a Google sign-in link, and waits up to
-5 minutes for you to sign in.
+GMAIL_CLIENT_SECRET from .env (asks for them and saves them if they are
+missing), prints a Google sign-in link, and waits up to 5 minutes.
 
   --write   save GMAIL_REFRESH_TOKEN into .env instead of printing it
   --help    show this help`;
@@ -103,8 +132,7 @@ async function main(argv) {
   if (argv.includes('--help') || argv.includes('-h')) { console.log(USAGE); return; }
   const write = argv.includes('--write');
   const envFile = path.join(getCareerOpsRoot(), '.env');
-  if (!existsSync(envFile)) throw new Error(`no .env at ${envFile}. Create it with GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET (README, step 2).`);
-  const { clientId, clientSecret } = readClientCreds(readFileSync(envFile, 'utf8'));
+  const { clientId, clientSecret } = await ensureClientCreds(envFile);
   const { verifier, challenge } = pkcePair();
   const state = randomBytes(16).toString('base64url');
 
@@ -113,8 +141,9 @@ async function main(argv) {
   const address = server.address();
   const redirectUri = `http://127.0.0.1:${typeof address === 'object' && address ? address.port : 0}`;
 
+  const authUrl = buildAuthUrl({ clientId, redirectUri, challenge, state });
   console.log('\nOpen this link in your browser and sign in with the Gmail account that receives the job alerts:\n');
-  console.log(buildAuthUrl({ clientId, redirectUri, challenge, state }));
+  console.log(authUrl);
   console.log('\nGoogle may say the app is not verified. That is expected for your own app: choose Advanced, then "Go to …".');
   console.log('Waiting up to 5 minutes…');
 

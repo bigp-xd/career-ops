@@ -69,9 +69,10 @@ export const FULL_ENV = Object.freeze({ GMAIL_CLIENT_ID: 'id', GMAIL_CLIENT_SECR
 /**
  * Stand-in for ctx.fetch serving the three Gmail endpoints the plugin uses.
  * List order follows the insertion order of `messages`.
- * @param {{ messages?: Record<string, Buffer | Error>, tokenError?: string, onRaw?: (id: string) => void }} [o]
+ * `onRaw` / `onList` may return a promise to simulate a slow response.
+ * @param {{ messages?: Record<string, Buffer | Error>, tokenError?: string, onRaw?: (id: string) => unknown, onList?: () => unknown }} [o]
  */
-export function fakeGmail({ messages = {}, tokenError, onRaw } = {}) {
+export function fakeGmail({ messages = {}, tokenError, onRaw, onList } = {}) {
   /** @type {{ url: string, opts: any }[]} */
   const calls = [];
   const json = (data) => ({ ok: true, status: 200, json: async () => data });
@@ -82,11 +83,11 @@ export function fakeGmail({ messages = {}, tokenError, onRaw } = {}) {
       if (tokenError) throw new Error(tokenError);
       return json({ access_token: 'test-access-token' });
     }
-    if (url.startsWith(`${GMAIL_API}/messages?`)) return json({ messages: Object.keys(messages).map(id => ({ id })) });
+    if (url.startsWith(`${GMAIL_API}/messages?`)) { await onList?.(); return json({ messages: Object.keys(messages).map(id => ({ id })) }); }
     const raw = /\/messages\/([^/?]+)\?format=raw$/.exec(url);
     if (raw) {
       const id = decodeURIComponent(raw[1]);
-      onRaw?.(id);
+      await onRaw?.(id);
       const m = messages[id];
       if (m instanceof Error) throw m;
       return json({ raw: m.toString('base64url') });
@@ -115,4 +116,13 @@ export function linkedinCard({ n, id, title, company, location }) {
 export function alertHtml(cards) {
   return `<html><head><style>p{margin:0}</style></head><body><h1>Your job alert</h1>${cards.join('')}` +
     '<p><a href="https://www.linkedin.com/comm/psettings/email-unsubscribe?x=1">Unsubscribe</a></p></body></html>';
+}
+
+/** @param {number} ms */
+export const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+/** A ZipRecruiter-style card whose only links are opaque /km/ tokens (title + "View Details" share one). @param {{ token: string, title: string, company: string, location: string }} c */
+export function zipCard({ token, title, company, location }) {
+  const href = `https://www.ziprecruiter.com/km/${token}?tsid=s${token}&amp;auth_token=secret`;
+  return `<p><a href="${href}">${title}</a></p><p>${company}</p><p>${location}</p><p><a href="${href}">View Details</a></p>`;
 }

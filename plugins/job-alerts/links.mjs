@@ -34,9 +34,24 @@ export function opaqueJobKey(href, text, hostRe, noise) {
   const u = safeUrl(href);
   if (!u || u.protocol !== 'https:' || !hostRe.test(u.hostname)) return null;
   if (!text || noise.some(re => re.test(text)) || FOOTER_PATH.test(u.pathname)) return null;
-  u.hash = '';
-  // Tracking links can carry a login for the recipient's account (ZipRecruiter
-  // puts auth_token and contact_id on every job link). A lead must not.
-  for (const name of [...u.searchParams.keys()]) if (LOGIN_PARAM.test(name)) u.searchParams.delete(name);
-  return { key: `opaque:${u.href}`, url: u.href, opaque: true };
+  const url = opaqueUrl(href);
+  return url ? { key: opaqueKey(url), url, opaque: true } : null;
 }
+
+/**
+ * The link as an id-less lead keeps it: no fragment, and no login-like query
+ * parameters. Tracking links can carry a login for the recipient's account
+ * (ZipRecruiter puts auth_token and contact_id on every job link); a lead
+ * must not. null for anything that is not an https URL.
+ * @param {string} href
+ */
+export function opaqueUrl(href) {
+  const u = safeUrl(href);
+  if (!u || u.protocol !== 'https:') return null;
+  u.hash = '';
+  for (const name of [...u.searchParams.keys()]) if (LOGIN_PARAM.test(name)) u.searchParams.delete(name);
+  return u.href;
+}
+
+/** @param {string} url an opaqueUrl() result */
+export const opaqueKey = (url) => `opaque:${url}`;

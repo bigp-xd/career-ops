@@ -56,3 +56,12 @@ test('fetchRawMessage decodes base64url and requires a body', async () => {
   assert.equal(url, `${GMAIL_API}/messages/id%2F1?format=raw`);
   await assert.rejects(fetchRawMessage(async () => reply({}), 'tok', 'x'), /no raw message/);
 });
+
+test('fetchRawMessage passes a per-request timeout to the fetch function', async () => {
+  /** @type {any} */
+  let seen;
+  const fetch = async (u, opts) => { seen = opts; return reply({ raw: Buffer.from('x').toString('base64url') }); };
+  await fetchRawMessage(fetch, 'tok', 'm1', { timeoutMs: 1234 });
+  assert.equal(seen.timeoutMs, 1234);
+  assert.equal(seen.headers.Authorization, 'Bearer tok');
+});

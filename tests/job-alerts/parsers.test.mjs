@@ -75,7 +75,7 @@ test('parseAlert returns clean jobs and counts id-less links', () => {
     jobs: [{ title: 'Graphic Designer', company: 'Acme', location: 'Toronto, ON', url: 'https://www.linkedin.com/jobs/view/4012345678/' }],
     warnings: [],
   });
-  const opaque = parseAlert(indeed, '<a href="https://engage.indeed.com/f/a/XYZ123">Event Coordinator</a><div>Beta</div><div>Remote</div>');
+  const opaque = parseAlert(indeed, '<a href="https://engage.indeed.com/f/a/XYZ123">Event Coordinator</a><div>Beta</div><div>Remote</div><a href="https://engage.indeed.com/f/a/XYZ123">View job</a>');
   assert.equal(opaque.jobs.length, 1);
   assert.deepEqual(opaque.warnings, ['Indeed: some job links had no job id, so the original links were kept']);
 });
@@ -117,4 +117,13 @@ test('opaque links drop login-like query parameters', () => {
   const host = /(^|\.)ziprecruiter\.com$/i;
   const k = opaqueJobKey('https://www.ziprecruiter.com/km/AbC123?tsid=777&auth_token=SECRET&contact_id=42&expires=99&email=a%40b.c&Token=x', 'Event Coordinator', host, COMMON_NOISE);
   assert.deepEqual(k, { key: 'opaque:https://www.ziprecruiter.com/km/AbC123?tsid=777', url: 'https://www.ziprecruiter.com/km/AbC123?tsid=777', opaque: true });
+});
+
+test('an id-less link becomes a job only when the email links that same target at least twice', () => {
+  const single = '<p><a href="https://www.ziprecruiter.com/km/AAAprofile1">Complete Your Profile</a></p><p>It only takes 2 minutes.</p>' +
+    '<p><a href="https://www.ziprecruiter.com/km/AAAsearch22">Search Jobs</a></p><p>Phil</p><p>Your Career Advisor</p>';
+  assert.deepEqual(parseAlert(ziprecruiter, single).jobs, []);
+  const card = '<p><a href="https://www.ziprecruiter.com/km/AAAjob333?tsid=1&amp;auth_token=x">Event Coordinator</a></p><p>Beta</p><p>Remote</p>' +
+    '<p><a href="https://www.ziprecruiter.com/km/AAAjob333?tsid=1&amp;auth_token=y">View Details</a></p>';
+  assert.deepEqual(parseAlert(ziprecruiter, card).jobs.map(j => j.title), ['Event Coordinator']);
 });

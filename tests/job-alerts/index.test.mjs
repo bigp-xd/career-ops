@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createIngest, readSettings } from '../../plugins/job-alerts/index.mjs';
-import { buildEml, fakeGmail, fakeCtx, linkedinCard, alertHtml } from './helpers.mjs';
+import { buildEml, fakeGmail, fakeCtx, linkedinCard, alertHtml, sleep, zipCard } from './helpers.mjs';
 
 const tmpState = () => path.join(mkdtempSync(path.join(tmpdir(), 'job-alerts-')), 'data', 'state.json');
 const savedIds = (file) => JSON.parse(readFileSync(file, 'utf8')).processed_message_ids;
@@ -107,7 +107,7 @@ test('stops before the engine time limit and keeps the rest for the next run', a
   /** @type {Record<string, Buffer>} */
   const messages = {};
   for (let i = 1; i <= 10; i++) messages[`m${i}`] = alert(designer(i));
-  const { fetch } = fakeGmail({ messages, onRaw: () => { t += 4000; } });
+  const { fetch } = fakeGmail({ messages, onRaw: () => { t += 3000; } });
   const { ctx, logs } = fakeCtx({ fetch });
   const jobs = await createIngest({ statePath, now: () => t })(ctx);
   assert.equal(jobs.length, 4);
@@ -161,4 +161,76 @@ test('other mail from a board domain with no job links is skipped quietly, namin
   assert.ok(!logs.some(l => l.includes('⚠')));
   assert.equal(logs.filter(l => l.includes('donotreply@indeed.com')).length, 1);
   assert.deepEqual(savedIds(statePath), ['m1', 'm2']);
+});
+
+const savedState = (file) => JSON.parse(readFileSync(file, 'utf8'));
+const zipFrom = 'Phil @ ZipRecruiter <phil@ziprecruiter.com>';
+const zipAuth = ['mx.google.com; dkim=pass; dmarc=pass (p=QUARANTINE) header.from=ziprecruiter.com'];
+
+test('a batch still running at the hard deadline is abandoned unsaved; earlier emails still count', async () => {
+  const statePath = tmpState();
+  const { fetch } = fakeGmail({ messages: { m1: alert(designer(1)), m2: alert(designer(2)) }, onRaw: (id) => (id === 'm2' ? sleep(400) : undefined) });
+  const { ctx, logs } = fakeCtx({ fetch });
+  const jobs = await createIngest({ statePath, budgetMs: 50, hardMs: 120, saveByMs: 300, concurrency: 1 })(ctx);
+  assert.deepEqual(jobs.map(j => j.title), ['Designer 1']);
+  assert.deepEqual(savedIds(statePath), ['m1']);
+  assert.ok(logs.some(l => l.includes('1 alert email(s) not read yet')));
+});
+
+test('nothing is marked read when the run is already past the save cutoff', async () => {
+  const statePath = tmpState();
+  let t = 0;
+  const { fetch } = fakeGmail({ messages: { m1: alert(designer(1)) }, onList: () => { t = 14_500; } });
+  const { ctx, logs } = fakeCtx({ fetch });
+  assert.deepEqual(await createIngest({ statePath, now: () => t })(ctx), []);
+  assert.equal(existsSync(statePath), false);
+  assert.ok(logs.some(l => l.includes('ran out of time')));
+});
+
+test('a dry run that hits the time limit says a real run continues, not to repeat the dry run', async () => {
+  let t = 0;
+  /** @type {Record<string, Buffer>} */
+  const messages = {};
+  for (let i = 1; i <= 6; i++) messages[`m${i}`] = alert(designer(i));
+  const { fetch } = fakeGmail({ messages, onRaw: () => { t += 3000; } });
+  const { ctx, logs } = fakeCtx({ fetch, dryRun: true });
+  await createIngest({ statePath: tmpState(), now: () => t })(ctx);
+  assert.ok(logs.some(l => l.includes('without --dry-run')));
+  assert.ok(!logs.some(l => l.includes('Run it again')));
+});
+
+test('a job already handed to the pipeline on an earlier run is not added again', async () => {
+  const statePath = tmpState();
+  const first = fakeGmail({ messages: { m1: alert(designer(1, '4012345678')) } });
+  assert.equal((await createIngest({ statePath })(fakeCtx({ fetch: first.fetch }).ctx)).length, 1);
+  const second = fakeGmail({ messages: { m2: alert(designer(2, '4012345678')) } });
+  assert.deepEqual(await createIngest({ statePath })(fakeCtx({ fetch: second.fetch }).ctx), []);
+  assert.deepEqual(savedState(statePath).processed_message_ids, ['m1', 'm2']);
+});
+
+test('a dry run does not remember the jobs it showed', async () => {
+  const statePath = tmpState();
+  const msgs = { m1: alert(designer(1, '4012345678')) };
+  await createIngest({ statePath })(fakeCtx({ fetch: fakeGmail({ messages: msgs }).fetch, dryRun: true }).ctx);
+  assert.equal((await createIngest({ statePath })(fakeCtx({ fetch: fakeGmail({ messages: msgs }).fetch }).ctx)).length, 1);
+});
+
+test('the same ZipRecruiter job behind different opaque links is one lead, in one run and across runs', async () => {
+  const statePath = tmpState();
+  const job = { title: 'Event Coordinator', company: 'Beta Events', location: 'San Jose, CA' };
+  const z = (token) => buildEml({ from: zipFrom, auth: zipAuth, html: zipCard({ token, ...job }) });
+  const run1 = await createIngest({ statePath })(fakeCtx({ fetch: fakeGmail({ messages: { m1: z('AAAtokenOne'), m2: z('AAAtokenTwo') } }).fetch }).ctx);
+  assert.equal(run1.length, 1);
+  const run2 = await createIngest({ statePath })(fakeCtx({ fetch: fakeGmail({ messages: { m3: z('AAAtokenThree') } }).fetch }).ctx);
+  assert.deepEqual(run2, []);
+});
+
+test('an alert-looking email from an unconfirmed board address is flagged and kept for later, not dropped', async () => {
+  const statePath = tmpState();
+  const html = zipCard({ token: 'AAAtokenOne', title: 'Event Coordinator', company: 'Beta Events', location: 'San Jose, CA' });
+  const { fetch } = fakeGmail({ messages: { m1: buildEml({ from: 'ZipRecruiter <alerts@ziprecruiter.com>', auth: zipAuth, html }) } });
+  const { ctx, logs } = fakeCtx({ fetch });
+  assert.deepEqual(await createIngest({ statePath })(ctx), []);
+  assert.ok(logs.some(l => l.includes('⚠') && l.includes('alerts@ziprecruiter.com') && l.includes('parsers/ziprecruiter.mjs')));
+  assert.deepEqual(savedIds(statePath), []);
 });

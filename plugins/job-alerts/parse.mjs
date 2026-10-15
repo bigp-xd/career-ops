@@ -1,6 +1,7 @@
 // @ts-check
 // One alert email's HTML → clean job leads, using the board's rules.
 import { COMMON_NOISE, extractCards, htmlToLines } from './cards.mjs';
+import { opaqueKey, opaqueUrl } from './links.mjs';
 
 const MAX_FIELD = 200;
 // C0/C1 controls, zero-width characters, line/paragraph separators, bidi
@@ -28,13 +29,24 @@ export function parseAlert(board, html, { allowOpaque = true } = {}) {
     const key = board.jobKey(href, text);
     return key && !key.opaque ? key : null;
   };
-  const cards = extractCards(htmlToLines(html), { jobKey, noise: [...COMMON_NOISE, ...board.noise] });
+  const lines = htmlToLines(html);
+  const cards = extractCards(lines, { jobKey, noise: [...COMMON_NOISE, ...board.noise] });
+  // A real job card links its target at least twice (title and "View job" /
+  // "View Details", whatever their text). A lone id-less link is a promo
+  // ("Complete Your Profile", "Search Jobs"), not a job.
+  /** @type {Map<string, number>} */
+  const targets = new Map();
+  for (const line of lines) {
+    const url = line.href ? opaqueUrl(line.href) : null;
+    if (url) targets.set(opaqueKey(url), (targets.get(opaqueKey(url)) ?? 0) + 1);
+  }
   /** @type {Job[]} */
   const jobs = [];
   let opaque = 0;
   for (const card of cards) {
     const title = cleanField(card.title);
     if (!title || !/^https:\/\//i.test(card.url)) continue;
+    if (card.opaque && (targets.get(card.key) ?? 0) < 2) continue;
     if (card.opaque) opaque++;
     jobs.push({ title, company: cleanField(card.company), location: cleanField(card.location), url: card.url });
   }
