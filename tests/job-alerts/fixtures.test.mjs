@@ -6,10 +6,10 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseMessage } from '../mime.mjs';
-import { senderAddress, isGoogleDmarcPass } from '../auth.mjs';
-import { boardForSender } from '../boards.mjs';
-import { parseAlert } from '../parse.mjs';
+import { parseMessage } from '../../plugins/job-alerts/mime.mjs';
+import { senderAddress, isGoogleDmarcPass } from '../../plugins/job-alerts/auth.mjs';
+import { boardForSender } from '../../plugins/job-alerts/boards.mjs';
+import { parseAlert } from '../../plugins/job-alerts/parse.mjs';
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const emails = existsSync(dir) ? readdirSync(dir).filter(f => f.endsWith('.eml')).sort() : [];

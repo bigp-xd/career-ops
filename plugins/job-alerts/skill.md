@@ -14,7 +14,7 @@ boards.
 
 - `node plugins.mjs run job-alerts --dry-run`: show what would be added; writes nothing.
 - `node plugins.mjs run job-alerts`: add new jobs to `data/pipeline.md`.
-- `node plugins.local/job-alerts/connect-gmail.mjs --write`: one-time Google
+- `node plugins/job-alerts/connect-gmail.mjs --write`: one-time Google
   sign-in. It prints a link, waits up to 5 minutes for the user to sign in,
   and saves the token into `.env` without printing it.
 

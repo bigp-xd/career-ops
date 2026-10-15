@@ -1,9 +1,9 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { COMMON_NOISE, decodeEntities, htmlToLines, extractCards } from '../cards.mjs';
+import { COMMON_NOISE, decodeEntities, htmlToLines, extractCards } from '../../plugins/job-alerts/cards.mjs';
 
-/** @type {import('../cards.mjs').JobKeyFn} */
+/** @type {import('../../plugins/job-alerts/cards.mjs').JobKeyFn} */
 const fakeKey = (href) => {
   const m = /^https:\/\/jobs\.test\/view\/(\d+)/.exec(href);
   return m ? { key: `t:${m[1]}`, url: `https://jobs.test/view/${m[1]}` } : null;

@@ -41,7 +41,7 @@ export function createIngest({ statePath, budgetMs = DEFAULTS.budgetMs, concurre
     const started = now();
     const env = ctx.env ?? {};
     const missing = REQUIRED_ENV.filter(k => !env[k]);
-    if (missing.length) throw new Error(`job-alerts: missing ${missing.join(', ')} in .env (see plugins.local/job-alerts/README.md, step 2)`);
+    if (missing.length) throw new Error(`job-alerts: missing ${missing.join(', ')} in .env (see plugins/job-alerts/README.md, step 2)`);
     const { label, daysBack } = readSettings(ctx.settings);
     const file = statePath ?? defaultStatePath();
 

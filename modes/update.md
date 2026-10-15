@@ -1,5 +1,7 @@
 # Mode: update — Interactive System Update
 
+> **Fork notice (bigp-xd/career-ops):** this checkout ships `plugins/job-alerts/`, which the official updater deletes. Do not run any `update-system.mjs` command. Run `git pull` in the repository root, report what changed, and stop; the steps below do not apply to this fork. If `git pull` reports a conflict or local changes, stop and tell the user.
+
 When the user runs `/career-ops update`, execute this interactive update flow.
 
 ## Step 1 — Check for Updates

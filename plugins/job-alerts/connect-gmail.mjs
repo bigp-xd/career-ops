@@ -2,8 +2,8 @@
 // @ts-check
 // One-time Gmail sign-in for the job-alerts plugin.
 //
-//   node plugins.local/job-alerts/connect-gmail.mjs           # prints GMAIL_REFRESH_TOKEN
-//   node plugins.local/job-alerts/connect-gmail.mjs --write   # saves it into .env instead
+//   node plugins/job-alerts/connect-gmail.mjs           # prints GMAIL_REFRESH_TOKEN
+//   node plugins/job-alerts/connect-gmail.mjs --write   # saves it into .env instead
 //
 // Google's loopback flow for desktop apps: a listener on 127.0.0.1 catches the
 // sign-in redirect on this machine; PKCE and a random state guard the code.
@@ -89,8 +89,18 @@ export function upsertEnvValue(text, key, value) {
 /** @param {string} s */
 const escapeHtml = (s) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c);
 
+const USAGE = `Usage: node plugins/job-alerts/connect-gmail.mjs [--write]
+
+One-time Gmail sign-in for the job-alerts plugin. Reads GMAIL_CLIENT_ID and
+GMAIL_CLIENT_SECRET from .env, prints a Google sign-in link, and waits up to
+5 minutes for you to sign in.
+
+  --write   save GMAIL_REFRESH_TOKEN into .env instead of printing it
+  --help    show this help`;
+
 /** @param {string[]} argv */
 async function main(argv) {
+  if (argv.includes('--help') || argv.includes('-h')) { console.log(USAGE); return; }
   const write = argv.includes('--write');
   const envFile = path.join(getCareerOpsRoot(), '.env');
   if (!existsSync(envFile)) throw new Error(`no .env at ${envFile}. Create it with GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET (README, step 2).`);

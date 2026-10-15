@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { TOKEN_URL, GMAIL_API, getAccessToken, listMessageIds, fetchRawMessage } from '../gmail.mjs';
+import { TOKEN_URL, GMAIL_API, getAccessToken, listMessageIds, fetchRawMessage } from '../../plugins/job-alerts/gmail.mjs';
 
 const creds = { clientId: 'id', clientSecret: 'secret', refreshToken: 'refresh' };
 const reply = (data) => ({ json: async () => data });

@@ -28,8 +28,8 @@ footer links. This plugin replaces it for alert emails with per-site parsers.
 | --- | --- | --- |
 | Source | Job-alert emails in Gmail | Free, within every site's terms, candidate uses Gmail |
 | Boards | Indeed, ZipRecruiter, LinkedIn in one plugin | One setup and one failure point for a non-technical user |
-| Location | `plugins.local/job-alerts/`, force-added to git | `update-system.mjs apply` prunes unknown files under `plugins/`; `plugins.local/` is user layer and never touched. Gitignored by default, so `git add -f` once; git tracks it afterwards |
-| Distribution | Candidate clones the fork; updates via `git pull` | PRs land on the fork's `main` |
+| Location | `plugins/job-alerts/` (code) and `tests/job-alerts/` (tests) in the fork | First built in `plugins.local/` (force-added), but `tests/user-layer-untracked.test.mjs` forbids tracking ignored user-layer files, turning `node test-all.mjs` red. In `plugins/` the suite runs the plugin's tests. Cost: `update-system.mjs apply` prunes files under `plugins/` and `tests/` that upstream lacks, so the fork's `AGENTS.md` (Update Check) and `modes/update.md` say never to run the updater and to update with `git pull` instead |
+| Distribution | Candidate clones the fork; updates via `git pull` only | The fork owner merges upstream releases into the fork's `main`; PRs land there |
 | Network | Only `oauth2.googleapis.com`, `gmail.googleapis.com` | The plugin never fetches from Indeed / LinkedIn / ZipRecruiter |
 | Gmail code | Copied into the plugin, not imported from `plugins/gmail` | An upstream change to the bundled plugin cannot break it |
 | Dependencies | None | Plain Node, same as every bundled plugin |
@@ -37,7 +37,7 @@ footer links. This plugin replaces it for alert emails with per-site parsers.
 ## Layout
 
 ```
-plugins.local/job-alerts/
+plugins/job-alerts/
   manifest.json        id job-alerts, hooks [ingest], requiredEnv GMAIL_CLIENT_ID /
                        GMAIL_CLIENT_SECRET / GMAIL_REFRESH_TOKEN, allowedHosts the two
                        Google hosts, humanInTheLoop true
@@ -60,7 +60,7 @@ plugins.local/job-alerts/
   README.md            step-by-step human setup
   DESIGN.md            this file
   PLAN.md              implementation plan
-  test/                node:test suites + fixtures/ (sanitized .eml, one or more per board)
+tests/job-alerts/      node:test suites + fixtures/ (sanitized .eml, one or more per board); run by node test-all.mjs
 ```
 
 Messages are fetched with Gmail's `format=raw` and parsed locally by
@@ -199,7 +199,7 @@ registry, this helper has to move out of the plugin folder.
    does not expire after 7 days. Accept the "Google hasn't verified this app"
    screen during sign-in (expected for a personal app).
 2. Put the client id and secret in `.env`; run
-   `node plugins.local/job-alerts/connect-gmail.mjs --write`, which signs in
+   `node plugins/job-alerts/connect-gmail.mjs --write`, which signs in
    and saves the refresh token into `.env`.
 3. Create job alerts on Indeed, LinkedIn and ZipRecruiter (example searches for
    design, UX, events and coordinator roles).
@@ -208,10 +208,9 @@ registry, this helper has to move out of the plugin folder.
 5. Enable: add the `job-alerts` block to `config/plugins.yml`, run
    `node plugins.mjs enable job-alerts`. Keep the bundled `gmail` plugin
    disabled, or point it at a different label, to avoid duplicate leads.
-6. Updates: every change to the plugin bumps `manifest.json` `version`, which
-   the engine treats as an honest update and re-pins silently after
-   `git pull`. If it ever reports "files changed … without a version bump",
-   run `node plugins.mjs trust job-alerts`.
+6. Updates: `git pull` from the fork. Never accept a career-ops "update
+   available" prompt: the updater deletes `plugins/job-alerts/`. As a bundled
+   plugin it is re-pinned automatically after a pull (no `trust` step).
 7. Daily use: "check my job alerts" in Codex, then "process the pipeline".
 
 ## Testing
@@ -227,8 +226,8 @@ registry, this helper has to move out of the plugin folder.
   respected, `dryRun` writes no state, missing env produces the named error.
 - `connect-gmail.mjs`: unit-test URL construction, PKCE, and state checking;
   the live sign-in is verified by hand.
-- Run with `node --test 'plugins.local/job-alerts/test/*.test.mjs'`. The repo's
-  `test-all.mjs` must still pass (the plugin changes no system file).
+- Run with `node --test 'tests/job-alerts/*.test.mjs'`, or the whole repo suite `node test-all.mjs`, which discovers them. The repo's
+  `test-all.mjs` must still pass.
 - Before handover: a dry run against a real Gmail label, then the README
   followed from scratch on a fresh clone of the fork.
 

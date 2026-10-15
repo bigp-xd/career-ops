@@ -10,6 +10,8 @@
 
 **Spec:** `plugins.local/job-alerts/DESIGN.md`
 
+> **Executed 2026-10-14.** After execution the plugin moved to `plugins/job-alerts/` and its tests to `tests/job-alerts/` (`node test-all.mjs` forbids tracked files under the ignored `plugins.local/`). Paths below are as planned, not as shipped; see DESIGN.md for the final layout.
+
 ## Global Constraints
 
 - Node `^22.13.0 || >=23.4.0` (repo `package.json` engines). ESM only; every module starts with `// @ts-check` (after the shebang for CLIs).

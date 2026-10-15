@@ -5,7 +5,7 @@ import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import {
   AUTH_URL, TOKEN_URL, SCOPE, pkcePair, buildAuthUrl, readCallback, exchangeCode, readClientCreds, upsertEnvValue,
-} from '../connect-gmail.mjs';
+} from '../../plugins/job-alerts/connect-gmail.mjs';
 
 test('pkcePair derives an S256 challenge from the verifier', () => {
   const { verifier, challenge } = pkcePair(() => Buffer.alloc(32, 7));

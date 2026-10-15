@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { createSanitizer, buildFixture, fixtureFields } from '../tools/sanitize-eml.mjs';
-import { parseMessage } from '../mime.mjs';
+import { createSanitizer, buildFixture, fixtureFields } from '../../plugins/job-alerts/tools/sanitize-eml.mjs';
+import { parseMessage } from '../../plugins/job-alerts/mime.mjs';
 import { buildEml } from './helpers.mjs';
 import { gzipSync, gunzipSync } from 'node:zlib';
 

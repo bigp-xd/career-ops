@@ -1,7 +1,7 @@
 // @ts-check
 // Shared test helpers. Later tasks append to this file.
 import { Buffer } from 'node:buffer';
-import { TOKEN_URL, GMAIL_API } from '../gmail.mjs';
+import { TOKEN_URL, GMAIL_API } from '../../plugins/job-alerts/gmail.mjs';
 
 /**
  * Build a raw RFC 822 message (multipart/alternative: text + HTML).

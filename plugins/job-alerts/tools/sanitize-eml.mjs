@@ -2,7 +2,7 @@
 // @ts-check
 // Turn a job-alert email downloaded from Gmail into a fixture safe to commit.
 //
-//   node plugins.local/job-alerts/tools/sanitize-eml.mjs <in.eml> <out.eml> [--replace "Jane Doe=Test Candidate"]...
+//   node plugins/job-alerts/tools/sanitize-eml.mjs <in.eml> <out.eml> [--replace "Jane Doe=Test Candidate"]...
 //       [--forwarded --from "LinkedIn <jobs-noreply@linkedin.com>"]   # for an alert someone forwarded
 //
 // Keeps only From, Subject, Date, Gmail's own (topmost) Authentication-Results
@@ -148,9 +148,11 @@ export function buildFixture({ from, subject, date, auth, html }) {
 
 /** @param {string[]} argv */
 function main(argv) {
+  const usage = 'Usage: node plugins/job-alerts/tools/sanitize-eml.mjs <in.eml> <out.eml> [--replace "from=to"]... [--forwarded --from "<original sender>"]';
+  if (argv.includes('--help') || argv.includes('-h')) { console.log(usage); return; }
   const [input, output, ...rest] = argv;
   if (!input || !output) {
-    console.error('Usage: node plugins.local/job-alerts/tools/sanitize-eml.mjs <in.eml> <out.eml> [--replace "from=to"]...');
+    console.error(usage);
     process.exit(1);
   }
   /** @type {Array<[string, string]>} */

@@ -1,12 +1,12 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decodeLayers, opaqueJobKey } from '../links.mjs';
-import { linkedin } from '../parsers/linkedin.mjs';
-import { indeed } from '../parsers/indeed.mjs';
-import { ziprecruiter } from '../parsers/ziprecruiter.mjs';
-import { parseAlert, cleanField } from '../parse.mjs';
-import { COMMON_NOISE } from '../cards.mjs';
+import { decodeLayers, opaqueJobKey } from '../../plugins/job-alerts/links.mjs';
+import { linkedin } from '../../plugins/job-alerts/parsers/linkedin.mjs';
+import { indeed } from '../../plugins/job-alerts/parsers/indeed.mjs';
+import { ziprecruiter } from '../../plugins/job-alerts/parsers/ziprecruiter.mjs';
+import { parseAlert, cleanField } from '../../plugins/job-alerts/parse.mjs';
+import { COMMON_NOISE } from '../../plugins/job-alerts/cards.mjs';
 import { Buffer } from 'node:buffer';
 import { gzipSync } from 'node:zlib';
 

@@ -32,7 +32,7 @@ export async function getAccessToken(fetchFn, { clientId, clientSecret, refreshT
   } catch (err) {
     throw new Error(
       `job-alerts: Gmail sign-in failed (${String(/** @type {Error} */ (err).message).slice(0, 200)}). ` +
-      'Run `node plugins.local/job-alerts/connect-gmail.mjs --write` to sign in again. ' +
+      'Run `node plugins/job-alerts/connect-gmail.mjs --write` to sign in again. ' +
       'If this happens every week, your Google Cloud app is still in "Testing": publish it (README, step 1).',
     );
   }

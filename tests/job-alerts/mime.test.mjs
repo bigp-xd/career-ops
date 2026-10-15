@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { parseMessage, decodeHeaderValue, decodeQuotedPrintable } from '../mime.mjs';
+import { parseMessage, decodeHeaderValue, decodeQuotedPrintable } from '../../plugins/job-alerts/mime.mjs';
 import { buildEml } from './helpers.mjs';
 
 test('reads headers, including folded and repeated ones', () => {

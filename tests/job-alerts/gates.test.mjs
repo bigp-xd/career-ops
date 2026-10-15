@@ -1,9 +1,9 @@
 // @ts-check
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { senderAddress, domainOf, isGoogleDmarcPass } from '../auth.mjs';
-import { boardForSender, boardForDomain } from '../boards.mjs';
-import { parseMessage } from '../mime.mjs';
+import { senderAddress, domainOf, isGoogleDmarcPass } from '../../plugins/job-alerts/auth.mjs';
+import { boardForSender, boardForDomain } from '../../plugins/job-alerts/boards.mjs';
+import { parseMessage } from '../../plugins/job-alerts/mime.mjs';
 import { buildEml } from './helpers.mjs';
 
 test('senderAddress reads the address inside angle brackets, lower-cased', () => {

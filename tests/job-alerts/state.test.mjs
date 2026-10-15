@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { loadProcessed, saveProcessed, defaultStatePath } from '../state.mjs';
+import { loadProcessed, saveProcessed, defaultStatePath } from '../../plugins/job-alerts/state.mjs';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'job-alerts-state-'));
 

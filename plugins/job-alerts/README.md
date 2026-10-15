@@ -39,7 +39,7 @@ and private to you.
 2. In a terminal in the career-ops folder, run:
 
    ```bash
-   node plugins.local/job-alerts/connect-gmail.mjs --write
+   node plugins/job-alerts/connect-gmail.mjs --write
    ```
 
    Open the link it prints and pick your Gmail account. Google warns that the
@@ -107,8 +107,10 @@ Say **"check my job alerts"** to Codex, then **"process the pipeline"**.
 
 ## Updates
 
-Pull updates with `git pull`. If the plugin ever reports that its "files
-changed … without a version bump", run `node plugins.mjs trust job-alerts`.
+This copy of career-ops is a fork. Get updates with `git pull` only. Never run
+`node update-system.mjs apply` and never accept a "career-ops update
+available" offer: the official updater deletes this plugin. (Codex is already
+told not to offer it.)
 
 ## Privacy
 

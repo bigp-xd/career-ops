@@ -9,5 +9,5 @@
   "allowedHosts": ["oauth2.googleapis.com", "gmail.googleapis.com"],
   "skill": "skill.md",
   "humanInTheLoop": true,
-  "homepage": "https://github.com/bigp-xd/career-ops/tree/main/plugins.local/job-alerts"
+  "homepage": "https://github.com/bigp-xd/career-ops/tree/main/plugins/job-alerts"
 }

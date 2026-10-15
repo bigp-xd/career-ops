@@ -5,8 +5,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const pluginDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const repoRoot = path.join(pluginDir, '..', '..');
+const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const pluginDir = path.join(repoRoot, 'plugins', 'job-alerts');
 
 test('manifest passes the engine validator', async () => {
   const { validateManifest } = await import(pathToFileURL(path.join(repoRoot, 'plugins', '_engine.mjs')).href);
