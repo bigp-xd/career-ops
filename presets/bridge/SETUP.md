@@ -29,9 +29,14 @@ Then, during Steps 1-2:
 1. After `cv.md` exists, edit the **Same-Field IC** row in `modes/_profile.md`
    for her actual field, and remove any archetype her CV can't support.
    Add her field's job titles to `title_filter.positive` in `portals.yml`.
-2. Ask where she lives and which cities she could commute to for hybrid;
-   add them to `location_filter.allow` in `portals.yml`, and replace the US
-   entries if she is not in the US.
+2. Ask where she lives and which towns she could commute to (for hybrid and
+   for local on-site roles such as library jobs). Add her city, county, nearby
+   towns and state to `location_filter.allow` in `portals.yml`, and replace the
+   US entries if she is not in the US.
+   - Find her city's and county's NEOGOV boards (governmentjobs.com/careers/...)
+     -- public libraries hire there -- and add each under `job_boards`, using the
+     commented example in `portals.yml`. Run `node scan.mjs --dry-run` to confirm
+     they answer.
 3. In `config/profile.yml`, set `target_roles` from the archetypes and add:
 
    ```yaml
@@ -47,6 +52,11 @@ Then, during Steps 1-2:
 4. Offer to set up the `job-alerts` plugin so her Indeed / LinkedIn /
    ZipRecruiter alert emails flow into `data/pipeline.md`. Walk her through
    `plugins/job-alerts/README.md`; she runs the Gmail sign-in step herself.
+   Suggest a full-time "library assistant" alert near her city on Indeed and
+   LinkedIn, alongside alerts for the other target roles.
+5. If she already has a posting in hand (e.g. a full-time library assistant
+   job), evaluate it as soon as `cv.md` and `config/profile.yml` exist -- paste
+   the URL to run auto-pipeline.
 
 Updates: this fork updates with `git pull` only (see AGENTS.md → Update Check).
 The preset lives in her own files after install, so pulls never change it.

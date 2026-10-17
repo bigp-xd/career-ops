@@ -40,6 +40,7 @@ workload, intensity or terms would eat into evenings and weekends.
 | **Project / Program Coordinator** | Timelines, status tracking, meeting notes, cross-team follow-up | Someone organized who keeps projects on rails |
 | **People / Recruiting Coordinator** | Interview scheduling, onboarding, HR admin, candidate comms | Someone dependable on the people-ops back office |
 | **Content, QA & Data Operations** | Content review/moderation, QA testing, data entry/cleanup, documentation | Someone careful and consistent with process-driven work |
+| **Library / Public Service Assistant** | Circulation desk, patron help, shelving/cataloging support, program support, records | Someone friendly and dependable at a public or university library |
 | **Same-Field IC (her own field)** | *[fill in at onboarding from cv.md]* | Her existing skills, at a level she can do comfortably |
 
 ## Your Adaptive Framing
@@ -51,6 +52,7 @@ workload, intensity or terms would eat into evenings and weekends.
 | Project / Program Coordinator | Tracking, documentation, cross-team follow-up | cv.md |
 | People / Recruiting Coordinator | Scheduling, discretion, people skills | cv.md |
 | Content, QA & Data Ops | Attention to detail, consistency, process discipline | cv.md |
+| Library / Public Service | Patron service, organization, reliability, comfort with catalog/records systems | cv.md |
 | Same-Field IC | Directly relevant experience -- she can be productive fast | cv.md + article-digest.md |
 
 Across all of them, the honest and effective pitch is **"steady, low-maintenance
@@ -102,9 +104,11 @@ carve-out for her own outside projects.
 
 **In evaluations (scoring):**
 - Fully remote: best fit.
-- Hybrid: acceptable when the office is within commuting distance of her
-  `config/profile.yml` location. Score hybrid elsewhere **2.0**.
-- Fully on-site, or "remote" with mandatory travel above ~10%: score **1.0**.
+- Hybrid or fully on-site **within commuting distance** of her `config/profile.yml`
+  location: acceptable -- score **4.0**. Local on-site roles with set hours
+  (libraries, schools, public agencies) are good bridge jobs, not a compromise.
+- Hybrid or on-site outside commuting distance (would need relocation): score **1.0**.
+- Mandatory travel above ~10%: score **1.0** regardless of location.
 
 **In forms:**
 - Follow her actual availability from profile.yml.

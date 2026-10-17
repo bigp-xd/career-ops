@@ -42,6 +42,11 @@ title_filter:
     - "Documentation"
     - "Scheduler"
     - "Bookkeeper"
+    - "Library"
+    - "Circulation"
+    - "Library Page"
+    - "Library Technician"
+    - "word:Clerk"
 
   negative:
     # Leadership = high stakes; quota sales = variable, pressure-driven pay.
@@ -78,8 +83,9 @@ title_filter:
     - "Volunteer"
 
 location_filter:
-  # Only these places pass. At onboarding, add her country and the metro(s)
-  # she could commute to for hybrid roles (e.g. "Chicago", "Illinois").
+  # Only these places pass. At onboarding, add her city, county and nearby
+  # towns she could commute to (hybrid AND on-site local roles such as library
+  # jobs are listed by city, e.g. "Springfield, IL"), plus her state.
   allow:
     - "Remote"
     - "Anywhere"
@@ -152,3 +158,20 @@ job_boards:
   - name: Generalist World    # generalist / operator roles
     provider: generalist-world
     enabled: true
+
+  # University library jobs. 68 = HigherEdJobs' general Higher Education feed;
+  # the "Library" title keywords above keep the library roles. Some networks
+  # get a bot-check page from this feed: the scan then reports the board
+  # as failed and carries on with the others.
+  - name: HigherEdJobs        # university / college jobs, incl. libraries
+    provider: higheredjobs
+    cat_id: 68
+    enabled: true
+
+  # City / county public libraries post on NEOGOV (governmentjobs.com), one
+  # board per employer. At onboarding, add her city's and county's boards:
+  #   - name: City of Example (NEOGOV)
+  #     careers_url: https://www.governmentjobs.com/careers/exampleca
+  #     enabled: true
+  # School districts: SchoolSpring (<district>.schoolspring.com) or
+  # AppliTrack (www.applitrack.com/<district>/onlineapp/), same shape.
